@@ -18,14 +18,16 @@ export default function LoginPage() {
       formData.append('username', email);
       formData.append('password', password);
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+      const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const apiUrl = rawApiUrl.replace(/\/$/, '');
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Invalid email or password');
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'Invalid email or password');
       }
 
       const data = await response.json();
@@ -34,7 +36,11 @@ export default function LoginPage() {
       // Force reload to update app state and fetch user
       window.location.href = '/';
     } catch (err: any) {
-      setError(err.message);
+      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+        setError('Connecting to backend server... (Render free tier may take ~30s to wake up on the first request). Please retry.');
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
