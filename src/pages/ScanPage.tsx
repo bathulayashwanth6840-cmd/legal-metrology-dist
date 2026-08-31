@@ -376,7 +376,6 @@ export default function ScanPage() {
 
   // Available side OCR results if multi-side backend output is present
   const sidesOcr = scanResult?.extracted_fields?.sides_ocr || {};
-  const hasMultipleSidesOcr = Object.keys(sidesOcr).length > 0;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -520,7 +519,6 @@ export default function ScanPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
               {PRODUCT_SIDES.map(sideConfig => {
                 const side = sideConfig.side;
-                const file = images[side];
                 const preview = previewUrls[side];
 
                 return (
