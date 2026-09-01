@@ -18,6 +18,116 @@ const METROLOGY_FIELDS = [
   { key: 'fssai_number',        label: 'FSSAI License No.',          isCritical: false, icon: '🔏', ruleCode: 'FSSAI_001' },
 ];
 
+// Robust field extraction helper with OCR & AI fallback
+function resolveExtractedFields(data: any): Record<string, string> {
+  if (!data) return {};
+  
+  const ext = data.extracted_fields || {};
+  const sem = ext.semantic_fields || {};
+  const gemini = data.gemini_extraction || ext.gemini_extraction || {};
+  const localOcr = data.local_ocr || ext.local_ocr || {};
+  const rawText = data.ocr_raw_text || ext.raw_text || localOcr.full_text || localOcr.raw_text || '';
+
+  // 1. Resolve Product Name
+  let productName = sem.product_name || gemini.product_name || gemini.brand_name || '';
+  if (!productName && rawText) {
+    const lines = String(rawText).split('\n').map((l: string) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (!/^(MRP|Net|MFG|EXP|FSSAI|Lic|Batch|Best|Made|---)/i.test(line) && line.length > 3) {
+        productName = line.replace(/^(Product(\s*Name)?|Brand(\s*Name)?|Item(\s*Name)?)[\s:.-]*/i, '').trim();
+        break;
+      }
+    }
+  }
+
+  // 2. Resolve MRP
+  let mrp = sem.mrp || gemini.mrp || '';
+  if (!mrp && rawText) {
+    const mrpMatch = String(rawText).match(/(?:MRP|M\.R\.P\.?|Maximum\s+Retail\s+Price|Max\.?\s*Retail\s*Price)[\s:.-]*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+      || String(rawText).match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (mrpMatch) mrp = mrpMatch[1].replace(',', '').trim();
+  }
+
+  // 3. Resolve Net Quantity
+  let netQty = sem.net_quantity || '';
+  if (!netQty) {
+    if (gemini.net_quantity_value && gemini.net_quantity_unit) {
+      netQty = `${gemini.net_quantity_value} ${gemini.net_quantity_unit}`;
+    } else if (gemini.net_quantity) {
+      netQty = gemini.net_quantity;
+    } else if (rawText) {
+      const qtyMatch = String(rawText).match(/(?:Net\s*(?:Qty|Quantity|Wt|Weight|Content|Volume|Mass)?|N\.?\s*W\.?)[\s:.-]*(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|mg|ml|l|litre|litres|liter|liters|unit|units|N|U)\b/i)
+        || String(rawText).match(/\b(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|mg|ml|l|litre|litres|liter|liters)\b/i);
+      if (qtyMatch) netQty = `${qtyMatch[1]} ${qtyMatch[2]}`;
+    }
+  }
+
+  // 4. Resolve Manufacturer Name
+  let mfgName = sem.manufacturer_name || gemini.manufacturer_name || gemini.packer_name || gemini.importer_name || '';
+  if (!mfgName && rawText) {
+    const mfgMatch = String(rawText).match(/(?:Mfg\s*by|Manufactured\s*(?:by|&)|Packed\s*by|Marketed\s*by|Imported\s*by|Mfd\s*By)[\s:.-]*([^\n,]+)/i);
+    if (mfgMatch) mfgName = mfgMatch[1].trim();
+  }
+
+  // 5. Resolve Manufacturer Address
+  let mfgAddr = sem.manufacturer_address || gemini.manufacturer_address || gemini.packer_address || gemini.importer_address || '';
+  if (!mfgAddr && rawText) {
+    const pinMatch = String(rawText).match(/(?:Pin|Pincode|Dist\.?)?[\s:.-]*(\d{6})\b/i);
+    if (pinMatch) mfgAddr = `Packaging facility (PIN ${pinMatch[1]})`;
+  }
+
+  // 6. Resolve Mfg Date
+  let mfgDate = sem.mfg_date || gemini.manufacturing_date || gemini.packing_date || '';
+  if (!mfgDate && rawText) {
+    const dateMatch = String(rawText).match(/(?:MFG|MFD|Manufactured|Packed\s*On|PKD|PKG)[\s:.-]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s*[-/]?\s*\d{2,4})/i);
+    if (dateMatch) mfgDate = dateMatch[1].trim();
+  }
+
+  // 7. Resolve Expiry Date
+  let expDate = sem.expiry_date || gemini.expiry_date || gemini.best_before || '';
+  if (!expDate && rawText) {
+    const expMatch = String(rawText).match(/(?:EXP|Expiry|Use\s*By|Best\s*Before)[\s:.-]*([^\n]+)/i);
+    if (expMatch) expDate = expMatch[1].trim();
+  }
+
+  // 8. Resolve FSSAI
+  let fssai = sem.fssai_number || gemini.fssai_number || '';
+  if (!fssai && rawText) {
+    const fssaiMatch = String(rawText).match(/(?:FSSAI|Lic\.?\s*No\.?)[\s:.-]*(\d{14})\b/i) || String(rawText).match(/\b(1\d{13})\b/);
+    if (fssaiMatch) fssai = fssaiMatch[1].trim();
+  }
+
+  // 9. Resolve Consumer Care
+  let care = sem.consumer_care || gemini.customer_care_details || gemini.consumer_care_phone || gemini.consumer_care_email || '';
+  if (!care && rawText) {
+    const phoneMatch = String(rawText).match(/(?:Toll\s*Free|Helpline|Phone|Call)[\s:.-]*(\+?91[\s-]?)?([1800\d\s-]{10,14})\b/i);
+    const emailMatch = String(rawText).match(/([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i);
+    if (phoneMatch) care = phoneMatch[0].trim();
+    else if (emailMatch) care = emailMatch[1].trim();
+  }
+
+  // 10. Resolve Country of Origin
+  let origin = sem.country_of_origin || gemini.country_of_origin || '';
+  if (!origin && rawText) {
+    const originMatch = String(rawText).match(/(?:Country\s*of\s*Origin|Origin|Made\s*in|Product\s*of)[\s:.-]*([A-Za-z\s]+)\b/i)
+      || String(rawText).match(/\b(Made\s*in\s*India|Product\s*of\s*India)\b/i);
+    if (originMatch) origin = originMatch[1].trim();
+  }
+
+  return {
+    product_name: productName,
+    mrp: mrp,
+    net_quantity: netQty,
+    manufacturer_name: mfgName,
+    manufacturer_address: mfgAddr,
+    mfg_date: mfgDate,
+    expiry_date: expDate,
+    fssai_number: fssai,
+    consumer_care: care,
+    country_of_origin: origin,
+  };
+}
+
 export default function ScanDetail() {
   const { id } = useParams();
   const [scan, setScan] = useState<any>(null);
@@ -247,11 +357,13 @@ export default function ScanDetail() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {METROLOGY_FIELDS.map((f) => {
-                const value = scan.extracted_fields?.semantic_fields?.[f.key];
-                const fusionMeta = scan.extracted_fields?.fusion_fields?.[f.key] || {};
-                const sourceSide = fusionMeta.source_side || 'Front';
-                const confScore = fusionMeta.confidence_score || (value ? 85 : 0);
+              {(() => {
+                const resolved = resolveExtractedFields(scan);
+                return METROLOGY_FIELDS.map((f) => {
+                  const value = resolved[f.key] || scan.extracted_fields?.semantic_fields?.[f.key];
+                  const fusionMeta = scan.extracted_fields?.fusion_fields?.[f.key] || {};
+                  const sourceSide = fusionMeta.source_side || 'Front';
+                  const confScore = fusionMeta.confidence_score || (value ? 85 : 0);
 
                 return (
                   <tr key={f.key} className="hover:bg-slate-50/50 transition-colors">
@@ -284,7 +396,8 @@ export default function ScanDetail() {
                     </td>
                   </tr>
                 );
-              })}
+              });
+            })()}
             </tbody>
           </table>
         </div>
