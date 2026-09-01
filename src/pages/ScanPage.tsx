@@ -180,6 +180,82 @@ function resolveExtractedFields(data: any): Record<string, string> {
   };
 }
 
+// Dynamic Legal Metrology statutory compliance score calculator
+function computeDynamicComplianceScore(
+  fieldsMap: Record<string, string>,
+  violations: any[] = [],
+  serverScoreObj?: any
+): {
+  score: number;
+  max_score: number;
+  category: string;
+  color: string;
+  declarations_found: number;
+  declarations_total: number;
+  violations_count: number;
+} {
+  const weights: Record<string, number> = {
+    mrp: 15,
+    net_quantity: 15,
+    manufacturer_name: 15,
+    manufacturer_address: 15,
+    mfg_date: 15,
+    product_name: 10,
+    consumer_care: 10,
+    country_of_origin: 5,
+  };
+
+  let totalScore = 0;
+  let foundCount = 0;
+  const totalKeys = Object.keys(weights).length;
+
+  for (const [key, weight] of Object.entries(weights)) {
+    const val = fieldsMap[key]?.trim();
+    if (val && val.length > 0) {
+      totalScore += weight;
+      foundCount++;
+    }
+  }
+
+  // Deduct for confirmed violations if any
+  const highSeverityViolations = (violations || []).filter(
+    (v: any) => v.status === 'FAIL' || v.severity === 'HIGH'
+  ).length;
+  const medSeverityViolations = (violations || []).filter(
+    (v: any) => v.status === 'REVIEW' || v.severity === 'MEDIUM'
+  ).length;
+
+  totalScore -= (highSeverityViolations * 15) + (medSeverityViolations * 5);
+
+  let finalScore = Math.max(15, Math.min(100, Math.round(totalScore)));
+
+  // If server already provided a validated score and we have zero custom fields, respect it
+  if (serverScoreObj?.score && foundCount === 0) {
+    finalScore = serverScoreObj.score;
+  }
+
+  let category = 'Non-Compliant';
+  let color = 'red';
+
+  if (finalScore >= 85 && highSeverityViolations === 0) {
+    category = 'Compliant';
+    color = 'green';
+  } else if (finalScore >= 55 || (foundCount >= 4 && highSeverityViolations === 0)) {
+    category = 'Needs Review';
+    color = 'amber';
+  }
+
+  return {
+    score: finalScore,
+    max_score: 100,
+    category,
+    color,
+    declarations_found: foundCount,
+    declarations_total: totalKeys,
+    violations_count: (violations || []).length,
+  };
+}
+
 // Convert File to base64
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -569,15 +645,11 @@ export default function ScanPage() {
   const isCompliant = statusStr === 'compliant';
   const isNeedsReview = statusStr === 'needs_review';
 
-  const scoreObj = scanResult?.compliance_score || scanResult?.extracted_fields?.compliance_score || {
-    score: isCompliant ? 95 : isNeedsReview ? 82 : 45,
-    max_score: 100,
-    category: isCompliant ? 'Compliant' : isNeedsReview ? 'Needs Review' : 'Non-Compliant',
-    color: isCompliant ? 'green' : isNeedsReview ? 'amber' : 'red',
-    declarations_found: 8,
-    declarations_total: 10,
-    violations_count: scanResult?.violations?.length || 0,
-  };
+  const scoreObj = computeDynamicComplianceScore(
+    fields,
+    scanResult?.violations,
+    scanResult?.compliance_score || scanResult?.extracted_fields?.compliance_score
+  );
 
   const ocrConf = scanResult?.ocr_confidence ?? scanResult?.extracted_fields?.ocr_confidence ?? 94.5;
   const extConf = scanResult?.extraction_confidence ?? scanResult?.extracted_fields?.extraction_confidence ?? 88.0;
