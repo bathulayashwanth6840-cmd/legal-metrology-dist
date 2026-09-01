@@ -337,9 +337,10 @@ export default function HistoryPage() {
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           scan.status === 'compliant' ? 'bg-emerald-100 text-emerald-800' :
-                          scan.status === 'non_compliant' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          scan.status === 'needs_review' ? 'bg-amber-100 text-amber-800' :
+                          'bg-rose-100 text-rose-800'
                         }`}>
-                          {scan.status.toUpperCase()}
+                          {scan.status.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
 

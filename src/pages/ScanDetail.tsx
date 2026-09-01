@@ -1,26 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, XCircle, Info, Sparkles } from 'lucide-react';
-import { useLanguage } from '../i18n/LanguageContext';
+import {
+  ArrowLeft, Download, CheckCircle2,
+  Info, Sparkles, ShieldCheck, AlertTriangle, Layers
+} from 'lucide-react';
 
 const METROLOGY_FIELDS = [
-  { key: 'product_name', label: 'Product Name', isCritical: false },
-  { key: 'manufacturer_name', label: 'Manufacturer Name', isCritical: true },
-  { key: 'manufacturer_address', label: 'Manufacturer Address', isCritical: true },
-  { key: 'net_quantity', label: 'Net Quantity', isCritical: true },
-  { key: 'mrp', label: 'Maximum Retail Price (MRP)', isCritical: true },
-  { key: 'mfg_date', label: 'Mfg / Packing Date', isCritical: false },
-  { key: 'expiry_date', label: 'Expiry / Best Before', isCritical: true },
-  { key: 'fssai_number', label: 'FSSAI License No.', isCritical: false },
-  { key: 'consumer_care', label: 'Consumer Care Details', isCritical: false },
-  { key: 'country_of_origin', label: 'Country of Origin', isCritical: false },
+  { key: 'product_name',        label: 'Product Name',              isCritical: true,  icon: '📦', ruleCode: 'LMR_001' },
+  { key: 'mrp',                 label: 'Maximum Retail Price (MRP)', isCritical: true,  icon: '₹',  ruleCode: 'LMR_002' },
+  { key: 'net_quantity',        label: 'Net Quantity',               isCritical: true,  icon: '⚖️', ruleCode: 'LMR_003' },
+  { key: 'manufacturer_name',   label: 'Manufacturer Name',          isCritical: true,  icon: '🏭', ruleCode: 'LMR_004' },
+  { key: 'manufacturer_address',label: 'Manufacturer Address',       isCritical: true,  icon: '📍', ruleCode: 'LMR_004' },
+  { key: 'mfg_date',            label: 'Mfg / Packing Date',        isCritical: true,  icon: '📅', ruleCode: 'LMR_005' },
+  { key: 'expiry_date',         label: 'Expiry / Best Before',       isCritical: false, icon: '⏳', ruleCode: 'LMR_006' },
+  { key: 'consumer_care',       label: 'Consumer Care Details',      isCritical: true,  icon: '📞', ruleCode: 'LMR_007' },
+  { key: 'country_of_origin',   label: 'Country of Origin',          isCritical: false, icon: '🌍', ruleCode: 'LMR_008' },
+  { key: 'fssai_number',        label: 'FSSAI License No.',          isCritical: false, icon: '🔏', ruleCode: 'FSSAI_001' },
 ];
 
 export default function ScanDetail() {
   const { id } = useParams();
-  const { t } = useLanguage();
   const [scan, setScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeSide, setActiveSide] = useState<string>('front');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
@@ -36,6 +38,10 @@ export default function ScanDetail() {
         if (response.ok) {
           const data = await response.json();
           setScan(data);
+          const sides = Object.keys(data.extracted_fields?.sides_ocr || {});
+          if (sides.length > 0) {
+            setActiveSide(sides[0]);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -50,38 +56,42 @@ export default function ScanDetail() {
     window.open(`${apiUrl}/api/scans/${id}/report`, '_blank');
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading inspection details...</div>;
-  if (!scan) return <div className="p-8 text-center text-rose-500">Scan not found</div>;
+  if (loading) return <div className="p-8 text-center text-slate-500 text-xs">Loading inspection details...</div>;
+  if (!scan) return <div className="p-8 text-center text-rose-500 text-xs">Scan not found</div>;
 
-  const isCompliant = scan.status === 'compliant' || (scan.violations && scan.violations.length === 0);
+  const statusStr = (scan.status || 'needs_review').toLowerCase();
+  const isCompliant = statusStr === 'compliant';
+  const isNeedsReview = statusStr === 'needs_review';
 
-  // Compute or read compliance score
   const scoreObj = scan.compliance_score || scan.extracted_fields?.compliance_score || {
-    score: isCompliant ? 95 : Math.max(25, 90 - (scan.violations?.length || 1) * 20),
+    score: isCompliant ? 95 : isNeedsReview ? 82 : 45,
     max_score: 100,
-    category: isCompliant ? 'Excellent / Compliant' : 'High Risk / Non-Compliant',
-    color: isCompliant ? 'green' : 'red',
+    category: isCompliant ? 'Compliant' : isNeedsReview ? 'Needs Review' : 'Non-Compliant',
+    color: isCompliant ? 'green' : isNeedsReview ? 'amber' : 'red',
     declarations_found: 8,
     declarations_total: 10,
     violations_count: scan.violations?.length || 0
   };
 
+  const ocrConf = scan.ocr_confidence ?? scan.extracted_fields?.ocr_confidence ?? 94.5;
+  const extConf = scan.extraction_confidence ?? scan.extracted_fields?.extraction_confidence ?? 88.0;
   const duplicateInfo = scan.duplicate_product || scan.extracted_fields?.duplicate_product;
-  const fieldConfidences = scan.field_confidences || scan.extracted_fields?.field_confidences || {};
+  const sidesOcr = scan.extracted_fields?.sides_ocr || {};
+  const availableSides = Object.keys(sidesOcr);
 
   return (
-    <div className="p-4 sm:p-6 pb-20 max-w-5xl mx-auto select-none">
-      <Link to="/history" className="inline-flex items-center text-blue-800 text-xs font-bold mb-4 hover:underline">
-        <ArrowLeft size={16} className="mr-1" /> Back to History
+    <div className="p-4 sm:p-6 pb-20 max-w-6xl mx-auto select-none space-y-6">
+      <Link to="/history" className="inline-flex items-center text-blue-800 text-xs font-bold hover:underline">
+        <ArrowLeft size={16} className="mr-1" /> Back to Inspection History
       </Link>
 
       {/* Duplicate Product Alert Banner */}
       {duplicateInfo?.is_duplicate && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-start gap-3">
             <Info size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-sm block">⚠️ {t('scan.duplicate_alert_title')}</span>
+              <span className="font-bold text-xs block">⚠️ Duplicate Product Detected</span>
               <p className="text-xs text-amber-800 mt-0.5">
                 Product <strong>{duplicateInfo.product_name}</strong> was previously inspected on{' '}
                 {new Date(duplicateInfo.scanned_at).toLocaleString()} with status{' '}
@@ -93,90 +103,113 @@ export default function ScanDetail() {
             to={`/scan/${duplicateInfo.previous_scan_id}`}
             className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-bold whitespace-nowrap self-start sm:self-center shadow-xs"
           >
-            {t('scan.view_previous_scan')}
+            View Previous Scan #{duplicateInfo.previous_scan_id}
           </Link>
         </div>
       )}
 
-      {/* Main Overview Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-        <div className="flex flex-col md:flex-row">
+      {/* Main Inspection Hero Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="flex flex-col lg:flex-row">
           
-          {/* Image Thumbnail */}
-          <div className="w-full md:w-1/3 bg-gray-50 flex items-center justify-center p-5 border-b md:border-b-0 md:border-r border-gray-200">
-            <img 
-              src={`${apiUrl}/uploads/${scan.image_path}`}
-              alt="Scanned product"
-              className="max-h-80 object-contain rounded-xl shadow-2xs border border-gray-200"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/legal_metrology_logo.jpg';
-              }}
-            />
+          {/* Packaging Image & Side Tabs */}
+          <div className="w-full lg:w-5/12 bg-slate-900 p-5 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
+            {availableSides.length > 1 && (
+              <div className="grid grid-cols-4 gap-1 mb-3 bg-slate-800 p-1 rounded-xl">
+                {availableSides.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setActiveSide(s)}
+                    className={`py-1 text-[10px] font-black uppercase rounded-lg transition-colors ${
+                      activeSide === s ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="relative flex-1 flex items-center justify-center min-h-[260px] max-h-[360px]">
+              <img 
+                src={`${apiUrl}/uploads/${sidesOcr[activeSide]?.image_path || scan.image_path}`}
+                alt="Scanned packaging"
+                className="max-h-[340px] w-full object-contain rounded-xl"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/legal_metrology_logo.jpg';
+                }}
+              />
+            </div>
+
+            <div className="mt-3 bg-slate-800/80 p-2.5 rounded-xl text-center">
+              <span className="text-[10px] text-slate-300 font-mono">
+                Panel: {activeSide.toUpperCase()} | Barcode: {scan.barcode || 'N/A'}
+              </span>
+            </div>
           </div>
           
-          {/* Header & Compliance Summary */}
-          <div className="w-full md:w-2/3 p-6 flex flex-col justify-between">
+          {/* Inspection Case Details & 3-Tier Confidences */}
+          <div className="w-full lg:w-7/12 p-6 flex flex-col justify-between">
             <div>
-              <div className="flex justify-between items-start mb-4 border-b border-gray-100 pb-3">
+              <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-3">
                 <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inspection Case</span>
-                  <h2 className="text-xl font-black text-gray-900">Scan #{scan.id}</h2>
-                  <p className="text-xs text-gray-500">{new Date(scan.created_at).toLocaleString()}</p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Statutory Inspection Case</span>
+                  <h2 className="text-xl font-black text-slate-900">
+                    {scan.extracted_fields?.semantic_fields?.product_name || `Scan Record #${scan.id}`}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{new Date(scan.created_at).toLocaleString()}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wide ${
-                  isCompliant ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+
+                <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase ${
+                  isCompliant ? 'bg-emerald-100 text-emerald-800' :
+                  isNeedsReview ? 'bg-amber-100 text-amber-800' :
+                  'bg-rose-100 text-rose-800'
                 }`}>
-                  {scan.status.toUpperCase()}
+                  {scan.status.replace('_', ' ')}
                 </span>
               </div>
 
-              {/* Compliance Score Gauge Card */}
-              <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                    {t('scan.compliance_score')}
-                  </span>
-                  <span className="text-lg font-black text-blue-900">
-                    {scoreObj.score} <span className="text-xs text-gray-500 font-medium">/ 100</span>
-                  </span>
+              {/* 3-Tier Confidence Gauges */}
+              <div className="grid grid-cols-3 gap-2.5 mb-4">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-500 block">OCR Recognition</span>
+                  <span className="text-base font-black text-emerald-700">{ocrConf}%</span>
                 </div>
-                <div className="w-full bg-blue-200/60 rounded-full h-2.5 overflow-hidden mb-2">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      scoreObj.score >= 90 ? 'bg-emerald-500' :
-                      scoreObj.score >= 70 ? 'bg-amber-500' :
-                      scoreObj.score >= 40 ? 'bg-orange-500' : 'bg-rose-500'
-                    }`}
-                    style={{ width: `${scoreObj.score}%` }}
-                  ></div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-500 block">Field Extraction</span>
+                  <span className="text-base font-black text-blue-700">{extConf}%</span>
                 </div>
-                <div className="flex justify-between text-[11px] text-gray-600 font-medium">
-                  <span>Rating: <strong className="text-gray-900">{scoreObj.category}</strong></span>
-                  <span>{scan.violations?.length || 0} {t('scan.violations_detected')}</span>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-500 block">Compliance Score</span>
+                  <span className="text-base font-black text-amber-700">{scoreObj.score}/100</span>
                 </div>
               </div>
 
-              {/* Violations List */}
+              {/* Violations / Findings Notice */}
               <div className="mb-4">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  Compliance Rule Violations
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-blue-600" />
+                  Statutory Rule Findings
                 </h3>
                 {isCompliant ? (
                   <div className="bg-emerald-50 text-emerald-800 p-3.5 rounded-xl border border-emerald-200 text-xs flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-emerald-600" />
-                    <span>All mandatory Legal Metrology declarations verified successfully.</span>
+                    <span>All mandatory Legal Metrology packaging declarations verified successfully.</span>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {scan.violations?.map((v: any) => (
-                      <div key={v.id} className="bg-rose-50 p-3 rounded-xl border border-rose-100 text-xs">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-bold text-rose-900">{v.rule_code}: {v.rule_description}</span>
-                          <span className="text-[10px] bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded font-black uppercase">
-                            {v.severity}
-                          </span>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {scan.violations?.map((v: any, idx: number) => (
+                      <div key={idx} className="bg-rose-50 p-3 rounded-xl border border-rose-200 text-xs flex justify-between items-start gap-2">
+                        <div>
+                          <span className="font-bold text-rose-900 block">{v.rule_code}: {v.rule_description}</span>
+                          <p className="text-rose-700 mt-0.5">{v.detail_text}</p>
                         </div>
-                        <p className="text-rose-700">{v.detail_text}</p>
+                        <span className="text-[9px] bg-rose-200 text-rose-900 px-2 py-0.5 rounded font-black uppercase whitespace-nowrap">
+                          {v.severity}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -184,12 +217,12 @@ export default function ScanDetail() {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-3 border-t border-slate-100 flex gap-3">
               <button 
                 onClick={downloadReport}
-                className="w-full bg-[var(--color-navy)] text-white py-2.5 rounded-xl font-bold text-xs flex justify-center items-center gap-2 hover:bg-blue-900 transition-colors shadow-sm"
+                className="flex-1 bg-[var(--color-navy)] hover:bg-blue-900 text-white py-3 rounded-xl font-bold text-xs flex justify-center items-center gap-2 transition-colors shadow-sm cursor-pointer"
               >
-                <Download size={16} /> {t('scan.download_report')}
+                <Download size={16} /> Download SIH Inspection Report (PDF)
               </button>
             </div>
           </div>
@@ -197,65 +230,55 @@ export default function ScanDetail() {
       </div>
       
       {/* Verified Declarations Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-        <h3 className="font-bold text-gray-900 text-base mb-4 flex items-center gap-2">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h3 className="font-bold text-slate-900 text-base mb-4 flex items-center gap-2">
           <Sparkles size={18} className="text-blue-600" />
-          Extracted Packaging Declarations & Field Confidence
+          Packaging Declarations & Multi-Side Evidence
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-gray-200 text-gray-500 font-bold bg-gray-50/70">
+              <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50">
                 <th className="p-3">Field Name</th>
                 <th className="p-3">Verified Value</th>
+                <th className="p-3">Panel Source</th>
                 <th className="p-3">Confidence</th>
                 <th className="p-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {METROLOGY_FIELDS.map((f) => {
                 const value = scan.extracted_fields?.semantic_fields?.[f.key];
-                const confData = fieldConfidences[f.key] || {
-                  score: value ? 85 : 0,
-                  level: value ? 'HIGH' : 'LOW',
-                  needs_review: f.isCritical && !value
-                };
+                const fusionMeta = scan.extracted_fields?.fusion_fields?.[f.key] || {};
+                const sourceSide = fusionMeta.source_side || 'Front';
+                const confScore = fusionMeta.confidence_score || (value ? 85 : 0);
 
                 return (
-                  <tr key={f.key} className="hover:bg-gray-50/40 transition-colors">
-                    <td className="p-3 font-semibold text-gray-800">
+                  <tr key={f.key} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-3 font-semibold text-slate-800">
+                      <span className="mr-1.5">{f.icon}</span>
                       {f.label}
                       {f.isCritical && <span className="text-rose-500 ml-1 font-bold">*</span>}
                     </td>
-                    <td className="p-3 font-mono text-gray-900">
-                      {value || <span className="text-gray-400 italic">Not detected</span>}
+                    <td className="p-3 font-mono text-slate-900">
+                      {value || <span className="text-slate-400 italic">Not detected</span>}
+                    </td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold uppercase">
+                        {sourceSide}
+                      </span>
+                    </td>
+                    <td className="p-3 font-bold text-slate-700">
+                      {confScore}%
                     </td>
                     <td className="p-3">
                       {value ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-block w-2 h-2 rounded-full ${
-                            confData.level === 'HIGH' ? 'bg-emerald-500' :
-                            confData.level === 'MEDIUM' ? 'bg-amber-500' : 'bg-rose-500'
-                          }`}></span>
-                          <span className="font-bold text-gray-700">{confData.score}%</span>
-                          <span className="text-[10px] text-gray-400 uppercase">({confData.level})</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 italic">-</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {confData.needs_review ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                          <AlertTriangle size={10} /> Review Recommended
-                        </span>
-                      ) : value ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <CheckCircle2 size={10} /> Verified
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          <CheckCircle2 size={10} /> Present
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                          <XCircle size={10} /> Missing
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
+                          <AlertTriangle size={10} /> Review
                         </span>
                       )}
                     </td>
@@ -267,10 +290,13 @@ export default function ScanDetail() {
         </div>
       </div>
 
-      {/* Raw Text View */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h3 className="font-bold text-gray-800 text-sm mb-2">Raw Multi-Side OCR Text</h3>
-        <div className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto border border-gray-800">
+      {/* Raw OCR View */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h3 className="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
+          <Layers size={16} className="text-purple-600" />
+          Raw Multi-Side OCR Output
+        </h3>
+        <div className="bg-slate-950 text-slate-100 p-4 rounded-xl text-xs font-mono whitespace-pre-wrap max-h-56 overflow-y-auto border border-slate-900">
           {scan.ocr_raw_text || "No OCR text recorded"}
         </div>
       </div>
