@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage';
 import RulesPage from './pages/RulesPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
+import PresentationPage from './pages/PresentationPage';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/scan" element={<ScanPage />} />
+                <Route path="/presentation" element={<PresentationPage />} />
                 <Route path="/history" element={<HistoryPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />

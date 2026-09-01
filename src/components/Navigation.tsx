@@ -2,7 +2,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Home, Camera, History, User, BookOpen,
-  Globe, Video, FileText, TrendingUp, ShieldCheck
+  Globe, Video, FileText, TrendingUp, ShieldCheck, Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
@@ -15,6 +15,7 @@ export default function Navigation() {
     { to: '/scan', icon: <Camera size={18} />, label: t('nav.scan') || 'New Inspection' },
     { to: '/scan?mode=video360', icon: <Video size={18} />, label: t('nav.video360') || '360° Scan', badge: 'NEW' },
     { to: '/history', icon: <History size={18} />, label: t('nav.history') || 'Inspection History' },
+    { to: '/presentation', icon: <Sparkles size={18} />, label: 'SIH Slide Deck', badge: 'PPT' },
     { to: '/reports', icon: <FileText size={18} />, label: t('nav.reports') || 'Reports' },
     { to: '/analytics', icon: <TrendingUp size={18} />, label: t('nav.analytics') || 'Compliance Analytics' },
     { to: '/rules', icon: <BookOpen size={18} />, label: t('nav.rules') || 'Rules & Act' },

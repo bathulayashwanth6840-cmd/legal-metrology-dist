@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LegalMetriX — SIH 2024 Presentation</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      overflow: hidden;
+    }
+    .slide {
+      display: none;
+      height: 100vh;
+      width: 100vw;
+      padding: 3rem 5rem;
+      box-sizing: border-box;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+    }
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 1;
+    }
+    .tricolor-bar {
+      height: 6px;
+      display: flex;
+      width: 100%;
+    }
+    .tricolor-saffron { background-color: #FF9933; flex: 1; }
+    .tricolor-white { background-color: #FFFFFF; flex: 1; }
+    .tricolor-green { background-color: #138808; flex: 1; }
+  </style>
+</head>
+<body class="relative">
+
+  <!-- Top Tricolor Strip -->
+  <div class="tricolor-bar fixed top-0 left-0 z-50 shadow-md">
+    <div class="tricolor-saffron"></div>
+    <div class="tricolor-white"></div>
+    <div class="tricolor-green"></div>
+  </div>
+
+  <!-- Main Slides Container -->
+  <div id="slides-container" class="w-full h-full">
+
+    <!-- ── SLIDE 1: TITLE SLIDE ─────────────────────────────────────────── -->
+    <div class="slide active">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-lg">
+            <i data-lucide="shield-check" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <span class="text-xl font-black tracking-wide text-white block">LegalMetriX</span>
+            <span class="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Smart India Hackathon 2024</span>
+          </div>
+        </div>
+        <span class="px-4 py-1.5 bg-blue-950/80 border border-blue-800 text-blue-300 rounded-full text-xs font-bold">
+          Ministry of Consumer Affairs • Legal Metrology
+        </span>
+      </div>
+
+      <div class="my-auto space-y-6 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-extrabold uppercase tracking-widest">
+          <i data-lucide="sparkles" class="w-4 h-4"></i> Autonomous Compliance & Enforcement Platform
+        </div>
+        <h1 class="text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight">
+          AI-Powered 360° Packaging Compliance & Regulatory Audit Suite
+        </h1>
+        <p class="text-lg text-slate-300 leading-relaxed font-medium">
+          Verifying packaged commodity declarations under the <strong class="text-amber-400">Legal Metrology (Packaged Commodities) Rules, 2011</strong> using intelligent 360° single-clip video scanning, multimodal OCR fusion, and evidence-backed rule evaluation.
+        </p>
+
+        <div class="pt-4 flex items-center gap-6">
+          <div class="flex items-center gap-3 bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
+            <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-black">
+              <i data-lucide="video" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-medium block">Innovation</span>
+              <span class="text-sm font-bold text-white">360° Single-Clip Scan</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-black">
+              <i data-lucide="award" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-medium block">Accuracy</span>
+              <span class="text-sm font-bold text-white">100-Point Rule Engine</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
+            <div class="w-10 h-10 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center font-black">
+              <i data-lucide="globe" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 font-medium block">Live Deployment</span>
+              <span class="text-sm font-bold text-white">Vercel Cloud + PWA</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>Team LegalMetriX</span>
+        <span>Use [ ← / → ] or Spacebar to navigate slides</span>
+        <span>Slide 1 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 2: THE PROBLEM ─────────────────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="text-rose-500 w-6 h-6"></i> The Problem: Enforcement Bottlenecks
+        </h2>
+        <span class="text-xs font-mono text-slate-400">SIH PROBLEM ANALYSIS</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+        <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">Severe Officer Shortage</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Over <strong>100 Crore+ packaged products</strong> enter Indian retail and e-commerce markets daily, but limited enforcement officers must inspect packages manually, causing severe backlogs.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold">
+            <i data-lucide="scan" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">Multi-Surface Blindspots</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Mandatory declarations (MRP, FSSAI, Expiry, Manufacturer Address) are scattered across <strong>Front, Back, and Side panels</strong>. Single-photo apps fail or generate false non-compliance reports.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+            <i data-lucide="file-x" class="w-6 h-6"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">Non-Auditable AI Decisions</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Traditional AI demos act as "black boxes" with no coordinate evidence, no legal rule citations, and binary pass/fail verdicts that cannot stand in court or regulatory dispute.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 2 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 3: OUR SOLUTION ────────────────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="sparkles" class="text-amber-400 w-6 h-6"></i> Our Solution: LegalMetriX AI Platform
+        </h2>
+        <span class="text-xs font-mono text-slate-400">INNOVATION ARCHITECTURE</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="space-y-4">
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-3xl space-y-2">
+            <span class="text-xs font-extrabold uppercase text-blue-400 flex items-center gap-1.5">
+              <i data-lucide="video" class="w-4 h-4"></i> 1. 360° Continuous Single-Clip Capture
+            </span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Officer rotates the package once in hand. The system automatically extracts sharp keyframes, removes motion blur, and maps every surface.
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-3xl space-y-2">
+            <span class="text-xs font-extrabold uppercase text-purple-400 flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-4 h-4"></i> 2. Multimodal Evidence Fusion Layer
+            </span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              PaddleOCR + Gemini Vision cross-verify text across frames, merging front brand name, back manufacturer address, and side customer care into a unified profile.
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-3xl space-y-2">
+            <span class="text-xs font-extrabold uppercase text-emerald-400 flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4"></i> 3. Statutory 100-Point Rule Engine (LMR 2011)
+            </span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Evaluates all 10 mandatory declarations with 3-state logic: <strong>COMPLIANT</strong>, <strong>NEEDS REVIEW</strong>, and <strong>NON-COMPLIANT</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Visual Flow Graphic -->
+        <div class="bg-gradient-to-br from-blue-950/60 to-slate-900 border border-blue-800/60 p-6 rounded-3xl flex flex-col justify-between space-y-4">
+          <h3 class="text-sm font-black text-white uppercase tracking-wider">End-to-End Inspection Pipeline</h3>
+          <div class="space-y-2.5 text-xs">
+            <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between font-bold">
+              <span>1. Single Clip Video / 4-Side Capture</span>
+              <span class="text-blue-400">HUD Guide</span>
+            </div>
+            <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between font-bold">
+              <span>2. Laplacian Blur Filter & Keyframe Selector</span>
+              <span class="text-amber-400">Var(&Delta;I) &gt; 50</span>
+            </div>
+            <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between font-bold">
+              <span>3. Multi-Surface OCR & AI Declaration Fusion</span>
+              <span class="text-purple-400">10 Fields</span>
+            </div>
+            <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between font-bold">
+              <span>4. Bounding-Box Evidence & Readability Check</span>
+              <span class="text-emerald-400">Auditable</span>
+            </div>
+            <div class="p-3 bg-emerald-950/60 rounded-2xl border border-emerald-500/50 flex items-center justify-between font-bold text-emerald-300">
+              <span>5. Certified Inspection Dossier & PDF Report</span>
+              <span>100/100 Score</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 3 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 4: 360° SINGLE-CLIP SCANNER ────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="video" class="text-blue-400 w-6 h-6"></i> 360° Single-Clip Package Scanner
+        </h2>
+        <span class="text-xs font-mono text-slate-400">CORE TECHNICAL INNOVATION</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto items-center">
+        <div class="space-y-4 text-xs text-slate-300">
+          <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-1.5">
+            <h4 class="font-extrabold text-sm text-white flex items-center gap-2">
+              <i data-lucide="rotate-cw" class="w-4 h-4 text-blue-400"></i> Seamless User Workflow
+            </h4>
+            <p class="leading-relaxed">
+              The officer opens the camera and rotates the product once in 8–10 seconds. Live on-screen rotation HUD reticle guides the turning speed without manual multi-angle tapping.
+            </p>
+          </div>
+
+          <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-1.5">
+            <h4 class="font-extrabold text-sm text-white flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i> Laplacian Variance Blur Filtering
+            </h4>
+            <p class="leading-relaxed">
+              Samples 24–36 frames across the rotation. Discards motion-blurred frames using 2D discrete Laplacian convolution, retaining only high-frequency, crystal-clear label text.
+            </p>
+          </div>
+
+          <div class="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-1.5">
+            <h4 class="font-extrabold text-sm text-white flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> 360° Scan Coverage Matrix
+            </h4>
+            <p class="leading-relaxed">
+              Clusters frames into cardinal surfaces: Front, Right, Back, Left, Top, and Bottom. Shows <strong class="text-emerald-400">5/6 surfaces verified</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Visual 360 Matrix Display -->
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-white uppercase">360° Surface Evidence Corroboration</span>
+            <span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono font-bold">96% Avg Sharpness</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-emerald-400 block">FRONT</span>
+              <span class="text-[10px] text-slate-300">✅ 98% Verified</span>
+            </div>
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-emerald-400 block">RIGHT SIDE</span>
+              <span class="text-[10px] text-slate-300">✅ 94% Verified</span>
+            </div>
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-emerald-400 block">BACK PANEL</span>
+              <span class="text-[10px] text-slate-300">✅ 96% Verified</span>
+            </div>
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-emerald-400 block">LEFT SIDE</span>
+              <span class="text-[10px] text-slate-300">✅ 92% Verified</span>
+            </div>
+            <div class="p-3 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-amber-400 block">TOP CAP</span>
+              <span class="text-[10px] text-slate-300">⚠️ 65% Review</span>
+            </div>
+            <div class="p-3 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-center">
+              <span class="font-extrabold text-amber-400 block">BASE</span>
+              <span class="text-[10px] text-slate-300">⚠️ 50% Review</span>
+            </div>
+          </div>
+
+          <div class="p-3 bg-blue-950/40 border border-blue-800/40 rounded-xl text-[11px] text-blue-300">
+            ℹ️ <strong>Evidentiary Principle:</strong> Unseen surfaces are marked as <em>Needs Review</em> and never trigger false penalties.
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 4 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 5: STATUTORY CHECKLIST & READABILITY ───────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="clipboard-check" class="text-emerald-400 w-6 h-6"></i> Mandatory Declarations & Readability Analysis
+        </h2>
+        <span class="text-xs font-mono text-slate-400">LMR 2011 COMPLIANCE</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 my-auto">
+        <!-- 10 Declaration Table (8 cols) -->
+        <div class="md:col-span-8 bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Statutory Declarations Audited</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>📦 Product Name / Identity</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(a)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>₹ Maximum Retail Price (MRP)</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(e)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>⚖️ Net Quantity & Metric Unit</span>
+              <span class="text-emerald-400 font-bold">Rule 12</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>🏭 Manufacturer / Packer Name</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(b)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>📍 Physical Address with PIN</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(b)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>📅 Mfg Date / Packing Date</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(d)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>⏳ Expiry / Best Before</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(d)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>📞 Consumer Care (Phone/Email)</span>
+              <span class="text-emerald-400 font-bold">Rule 6(1)(f)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>🌍 Country of Origin</span>
+              <span class="text-emerald-400 font-bold">Rule 6(10)</span>
+            </div>
+            <div class="p-2.5 bg-slate-800/70 rounded-xl border border-slate-700/60 flex justify-between items-center">
+              <span>🔏 FSSAI License Number</span>
+              <span class="text-emerald-400 font-bold">FSSAI 2006</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Readability & Font Scale (4 cols) -->
+        <div class="md:col-span-4 bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3 flex flex-col justify-between">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-300">Readability & Placement</h3>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 bg-slate-800 rounded-xl">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Character Height</span>
+              <span class="text-emerald-400 font-bold">&ge; 2.5% Panel Area (Legible)</span>
+            </div>
+            <div class="p-3 bg-slate-800 rounded-xl">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Visual Contrast</span>
+              <span class="text-emerald-400 font-bold">94% High Contrast Passed</span>
+            </div>
+            <div class="p-3 bg-slate-800 rounded-xl">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">PDP Placement</span>
+              <span class="text-blue-400 font-bold">Conspicuous & Unobstructed</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-slate-400 italic">
+            *Calibrated scale fallback: Flags unscaled photos as "Needs Review" rather than false penalties.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 5 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: 3-STATE VERDICT & SCORING ────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="award" class="text-amber-400 w-6 h-6"></i> Explainable 3-State Verdict & 100-Point Scoring
+        </h2>
+        <span class="text-xs font-mono text-slate-400">CORE STATUTORY LOGIC</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+        <div class="bg-emerald-950/40 border border-emerald-500/40 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xl">
+            ✓
+          </div>
+          <h3 class="text-lg font-black text-emerald-400">COMPLIANT (85–100%)</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            All mandatory declarations are clearly verified, correctly formatted with statutory units (kg, g, L, ml), inclusive of all taxes, with valid manufacturer details.
+          </p>
+        </div>
+
+        <div class="bg-amber-950/40 border border-amber-500/40 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-xl">
+            ⚠
+          </div>
+          <h3 class="text-lg font-black text-amber-400">NEEDS REVIEW (55–84%)</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Essential declarations present, but secondary surfaces are partially captured or lighting is low. Routed to officer queue for visual sign-off without false penalties.
+          </p>
+        </div>
+
+        <div class="bg-rose-950/40 border border-rose-500/40 p-6 rounded-3xl space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center font-black text-xl">
+            ✕
+          </div>
+          <h3 class="text-lg font-black text-rose-400">NON-COMPLIANT (&lt; 50%)</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Conclusive evidence of statutory violations: missing MRP, deceptive packaging, unformatted net quantity, missing manufacturer identity, or expired commodity.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between text-xs">
+        <span class="font-bold text-slate-300">100-Point Weighted Scoring Index:</span>
+        <span class="text-slate-400 font-mono">MRP (15) + Net Qty (15) + Mfg Name (15) + Address (15) + Dates (15) + Name (10) + Consumer Care (10) + Origin (5)</span>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 6 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 7: ENFORCEMENT DASHBOARD & ANALYTICS ───────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="trending-up" class="text-blue-400 w-6 h-6"></i> Enforcement Dashboard & Analytics
+        </h2>
+        <span class="text-xs font-mono text-slate-400">ADMINISTRATIVE PORTAL</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+          <h3 class="text-sm font-black text-white uppercase">Officer Dashboard Features</h3>
+          <ul class="text-xs text-slate-300 space-y-3">
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="text-emerald-400 w-4 h-4 mt-0.5 flex-shrink-0"></i>
+              <span><strong>Real-time Audit Stream:</strong> Instant logging of all retail market scans with inspector attribution and timestamp.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="text-emerald-400 w-4 h-4 mt-0.5 flex-shrink-0"></i>
+              <span><strong>Violation Category Breakdown:</strong> Real-time charts tracking MRP, Net Quantity, and Manufacturer Address breaches.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="text-emerald-400 w-4 h-4 mt-0.5 flex-shrink-0"></i>
+              <span><strong>Role-Based Access Control:</strong> Switch seamlessly between Inspector, Supervisor, and Administrator permissions.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="text-emerald-400 w-4 h-4 mt-0.5 flex-shrink-0"></i>
+              <span><strong>Instant CSV Data Export:</strong> One-click export of market compliance audits for legal proceedings and ministry reporting.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4 flex flex-col justify-between">
+          <h3 class="text-sm font-black text-white uppercase">Official Certified PDF Reports</h3>
+          <div class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2 text-xs">
+            <div class="flex items-center gap-2 font-bold text-amber-400">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+              <span>Court-Ready Statutory Dossier</span>
+            </div>
+            <p class="text-slate-300 leading-relaxed text-[11px]">
+              Generates an official Tricolor inspection report featuring QR-coded inspection ID, extracted declaration table, rule-by-rule statutory citations, and high-res evidence crops.
+            </p>
+          </div>
+          <div class="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 font-bold flex justify-between">
+            <span>Offline Sync Queue Supported</span>
+            <span>IndexedDB + ServiceWorker</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 7 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 8: DIFFERENTIATORS & WHY WE WIN ───────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="shield" class="text-amber-400 w-6 h-6"></i> Why LegalMetriX Wins: Competitive Edge
+        </h2>
+        <span class="text-xs font-mono text-slate-400">SIH DIFFERENTIATION</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-auto">
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-3">
+          <span class="text-2xl font-black text-blue-400">01</span>
+          <h3 class="font-bold text-white text-sm">360° Single-Clip Scan</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Continuous video recording eliminates the friction of snapping 6 separate images. Real-time Laplacian blur filtering guarantees sharp OCR.
+          </p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-3">
+          <span class="text-2xl font-black text-emerald-400">02</span>
+          <h3 class="font-bold text-white text-sm">3-State Regulatory Logic</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Eliminates false non-compliance penalties by distinguishing between genuine violations and unseen surfaces ("Needs Review").
+          </p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-3">
+          <span class="text-2xl font-black text-purple-400">03</span>
+          <h3 class="font-bold text-white text-sm">Multi-Surface Fusion</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Seamlessly links front brand names, back manufacturer addresses, and side customer care contacts into a single audit profile.
+          </p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-3xl space-y-3">
+          <span class="text-2xl font-black text-amber-400">04</span>
+          <h3 class="font-bold text-white text-sm">Field Officer Ready</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Full multilingual support (English, Hindi, Telugu), offline synchronization for remote markets, and court-ready PDF generation.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 8 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 9: LIVE DEMO & VALIDATION ──────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="play-circle" class="text-emerald-400 w-6 h-6"></i> Live Demonstration Workflow
+        </h2>
+        <span class="text-xs font-mono text-slate-400">HANDS-ON SYSTEM WALKTHROUGH</span>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl my-auto space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 text-center text-xs">
+          <div class="p-3 bg-blue-950/60 border border-blue-800/60 rounded-2xl">
+            <span class="font-black text-blue-400 block mb-1">STEP 1</span>
+            <span class="font-bold text-white">Dashboard Overview</span>
+            <span class="text-[10px] text-slate-400 block mt-1">Live audit stats</span>
+          </div>
+
+          <div class="p-3 bg-indigo-950/60 border border-indigo-800/60 rounded-2xl">
+            <span class="font-black text-indigo-400 block mb-1">STEP 2</span>
+            <span class="font-bold text-white">360° Video Scan</span>
+            <span class="text-[10px] text-slate-400 block mt-1">Single clip rotation</span>
+          </div>
+
+          <div class="p-3 bg-purple-950/60 border border-purple-800/60 rounded-2xl">
+            <span class="font-black text-purple-400 block mb-1">STEP 3</span>
+            <span class="font-bold text-white">AI Evidence Fusion</span>
+            <span class="text-[10px] text-slate-400 block mt-1">10 Declarations auto-filled</span>
+          </div>
+
+          <div class="p-3 bg-emerald-950/60 border border-emerald-800/60 rounded-2xl">
+            <span class="font-black text-emerald-400 block mb-1">STEP 4</span>
+            <span class="font-bold text-white">Statutory Verdict</span>
+            <span class="text-[10px] text-slate-400 block mt-1">100-Point Score & Checklist</span>
+          </div>
+
+          <div class="p-3 bg-amber-950/60 border border-amber-800/60 rounded-2xl">
+            <span class="font-black text-amber-400 block mb-1">STEP 5</span>
+            <span class="font-bold text-white">Certified PDF Dossier</span>
+            <span class="text-[10px] text-slate-400 block mt-1">Instant download & save</span>
+          </div>
+        </div>
+
+        <div class="p-4 bg-slate-800/60 rounded-2xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span class="text-xs font-bold text-white block">🚀 Live Deployed Application URL</span>
+            <span class="text-xs font-mono text-blue-400">https://legal-metrology-dist-three.vercel.app/</span>
+          </div>
+          <a
+            href="https://legal-metrology-dist-three.vercel.app/"
+            target="_blank"
+            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl inline-flex items-center gap-2 shadow-sm transition-all"
+          >
+            Launch Live Demo <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 9 / 10</span>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 10: ROADMAP & CONCLUSION ──────────────────────────────── -->
+    <div class="slide">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+          <i data-lucide="rocket" class="text-amber-400 w-6 h-6"></i> Scalability, National Impact & Future Roadmap
+        </h2>
+        <span class="text-xs font-mono text-slate-400">FUTURE VISION</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+            1
+          </div>
+          <h3 class="text-base font-bold text-white">E-Commerce Marketplace Bot</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Autonomous web scraper validating product image listings on Amazon, Flipkart, Blinkit, and Zepto for mandatory legal declarations before delivery.
+          </p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+            2
+          </div>
+          <h3 class="text-base font-bold text-white">On-Device Edge AI (NPU)</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Quantized ONNX models running on field officers' handheld Android/iOS rugged devices without requiring high-speed internet.
+          </p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+            3
+          </div>
+          <h3 class="text-base font-bold text-white">National Central Registry</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Centralized Legal Metrology database syncing inspection records across all 28 states for instant repeat-offender tracking and automated notice issuance.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 rounded-3xl border border-blue-800/80 flex justify-between items-center">
+        <div>
+          <h3 class="text-xl font-black text-white">Thank You, Respected Jury & Mentors!</h3>
+          <p class="text-xs text-blue-300 mt-0.5">Team LegalMetriX • Ready for Questions & Defense</p>
+        </div>
+        <span class="px-5 py-2.5 bg-amber-400 text-slate-950 rounded-xl font-black text-xs shadow-lg">
+          Q&A Session
+        </span>
+      </div>
+
+      <div class="flex justify-between items-center border-t border-slate-800/80 pt-4 text-xs text-slate-400">
+        <span>LegalMetriX • SIH 2024</span>
+        <span>Slide 10 / 10</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Controls Overlay -->
+  <div class="fixed bottom-6 right-8 flex items-center gap-3 z-50">
+    <button
+      id="prev-btn"
+      class="p-3 bg-slate-900/90 hover:bg-slate-800 text-white rounded-2xl border border-slate-700 shadow-xl transition-all cursor-pointer"
+      title="Previous Slide (Left Arrow)"
+    >
+      <i data-lucide="chevron-left" class="w-5 h-5"></i>
+    </button>
+    <span id="slide-indicator" class="px-4 py-2 bg-slate-900/90 border border-slate-700 text-white rounded-2xl text-xs font-mono font-bold shadow-xl">
+      1 / 10
+    </span>
+    <button
+      id="next-btn"
+      class="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl transition-all cursor-pointer"
+      title="Next Slide (Right Arrow or Spacebar)"
+    >
+      <i data-lucide="chevron-right" class="w-5 h-5"></i>
+    </button>
+  </div>
+
+  <!-- Slide Script -->
+  <script>
+    lucide.createIcons();
+
+    const slides = document.querySelectorAll('.slide');
+    let currentSlide = 0;
+    const indicator = document.getElementById('slide-indicator');
+
+    function showSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+
+      slides.forEach((s, idx) => {
+        s.classList.toggle('active', idx === index);
+      });
+
+      currentSlide = index;
+      indicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+      lucide.createIcons();
+    }
+
+    document.getElementById('prev-btn').addEventListener('click', () => showSlide(currentSlide - 1));
+    document.getElementById('next-btn').addEventListener('click', () => showSlide(currentSlide + 1));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        showSlide(currentSlide + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        showSlide(currentSlide - 1);
+      } else if (e.key === 'Home') {
+        showSlide(0);
+      } else if (e.key === 'End') {
+        showSlide(slides.length - 1);
+      }
+    });
+  </script>
+</body>
+</html>
