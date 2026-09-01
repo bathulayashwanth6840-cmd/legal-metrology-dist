@@ -4,19 +4,22 @@ import {
   Eye, Sparkles, ShieldCheck, RotateCcw,
   Camera, Image as ImageIcon, Loader2, ClipboardCheck,
   Crop, Trash2, Check, AlertCircle, WifiOff, Download,
-  Crosshair, Award, Tag
+  Crosshair, Award, Tag, Video, Layers, RotateCw
 } from 'lucide-react';
 import CameraCapture from '../components/CameraCapture';
 import ImageCropModal from '../components/ImageCropModal';
+import Video360Recorder from '../components/Video360Recorder';
 import { compressImage } from '../utils/imageCompressor';
 import { checkImageQuality } from '../utils/imageQuality';
 import { useLanguage } from '../i18n/LanguageContext';
 import { savePendingScan, syncPendingScans } from '../utils/offlineQueue';
 import type { PendingScan } from '../utils/offlineQueue';
+import type { Extracted360Result, SurfaceCoverageInfo } from '../utils/video360Processor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type WizardStep = 'UPLOAD' | 'EXTRACT' | 'REVIEW' | 'COMPLIANCE';
 type ProductSide = 'front' | 'back' | 'left' | 'right';
+type ScanMode = 'single' | 'multi' | 'video360';
 
 interface FieldConfig {
   key: string;
@@ -272,6 +275,10 @@ export default function ScanPage() {
   const [step, setStep] = useState<WizardStep>('UPLOAD');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+  // Scan Mode state: 'single' | 'multi' | 'video360'
+  const [scanMode, setScanMode] = useState<ScanMode>('video360');
+  const [coverage360, setCoverage360] = useState<SurfaceCoverageInfo[] | null>(null);
+
   // 4-side image state
   const [images, setImages] = useState<Record<ProductSide, File | null>>({
     front: null,
@@ -426,6 +433,34 @@ export default function ScanPage() {
     });
 
     e.target.value = '';
+  };
+
+  const handle360KeyframesExtracted = (result: Extracted360Result) => {
+    setCoverage360(result.coverageList);
+
+    const updatedImages: Record<ProductSide, File | null> = {
+      front: null,
+      back: null,
+      left: null,
+      right: null,
+    };
+    const updatedPreviews: Record<ProductSide, string> = {
+      front: '',
+      back: '',
+      left: '',
+      right: '',
+    };
+
+    (['front', 'back', 'left', 'right'] as ProductSide[]).forEach((side) => {
+      const kf = result.keyframes[side];
+      if (kf) {
+        updatedImages[side] = kf.file;
+        updatedPreviews[side] = kf.previewUrl;
+      }
+    });
+
+    setImages(updatedImages);
+    setPreviewUrls(updatedPreviews);
   };
 
   const handleRemoveSide = (side: ProductSide) => {
@@ -760,39 +795,107 @@ export default function ScanPage() {
         {step === 'UPLOAD' && (
           <div className="space-y-6">
 
-            {/* Top Quick Actions Bar */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Packaging Capture</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Capture or select 1 to 4 packaging sides. Use rear camera or upload from gallery.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 flex-wrap">
+            {/* ── Choose Scan Method Tabs ── */}
+            <div className="bg-white rounded-2xl p-2.5 border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={handlePrimaryCameraClick}
-                  disabled={isScanning}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+                  onClick={() => setScanMode('single')}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    scanMode === 'single'
+                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  <Camera size={16} /> {t('scan.use_camera')}
+                  <Camera size={14} />
+                  <span>Single Image</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={handlePrimaryGalleryClick}
-                  disabled={isScanning}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+                  onClick={() => setScanMode('multi')}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    scanMode === 'multi'
+                      ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  <ImageIcon size={16} /> {t('scan.upload_images')}
+                  <Layers size={14} />
+                  <span>Multiple Images</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setScanMode('video360')}
+                  className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    scanMode === 'video360'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Video size={14} className={scanMode === 'video360' ? 'text-white' : 'text-blue-600'} />
+                  <span>360° Video Scan</span>
+                  <span className="text-[9px] bg-amber-400 text-amber-950 font-black px-1.5 py-0.2 rounded-full uppercase">NEW</span>
                 </button>
               </div>
+
+              <span className="text-xs text-slate-500 font-medium hidden md:inline px-3">
+                {scanMode === 'video360'
+                  ? '🎥 Continuous 360° video rotation with automatic keyframe selection'
+                  : scanMode === 'single'
+                  ? '📷 Single photo inspection for front panel'
+                  : '🖼️ 4-side packaging capture (Front, Back, Left, Right)'}
+              </span>
             </div>
 
-            {/* 4-Side Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {PRODUCT_SIDES.map((sideConfig) => {
+            {/* ── Mode 1: 360° Video Scanner ── */}
+            {scanMode === 'video360' && (
+              <Video360Recorder
+                onKeyframesExtracted={handle360KeyframesExtracted}
+              />
+            )}
+
+            {/* Top Quick Actions Bar (Visible for Single/Multi or when manual override is desired) */}
+            {scanMode !== 'video360' && (
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {scanMode === 'single' ? 'Single Image Capture' : 'Multi-Side Packaging Capture'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {scanMode === 'single'
+                      ? 'Capture or upload a clear photo of the principal display panel.'
+                      : 'Capture 1 to 4 packaging sides. Use rear camera or upload from gallery.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handlePrimaryCameraClick}
+                    disabled={isScanning}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Camera size={16} /> {t('scan.use_camera')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrimaryGalleryClick}
+                    disabled={isScanning}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <ImageIcon size={16} /> {t('scan.upload_images')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Packaging Grid (Single card or 4-Side Grid) */}
+            <div className={`grid gap-4 ${
+              scanMode === 'single' ? 'grid-cols-1 max-w-lg mx-auto' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+            }`}>
+              {(scanMode === 'single' ? PRODUCT_SIDES.slice(0, 1) : PRODUCT_SIDES).map((sideConfig) => {
                 const side = sideConfig.side;
                 const file = images[side];
                 const preview = previewUrls[side];
@@ -995,6 +1098,46 @@ export default function ScanPage() {
               </div>
             </div>
 
+            {/* 360° Surface Coverage Matrix if available */}
+            {coverage360 && (
+              <div className="bg-white rounded-2xl p-4 border border-blue-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                    <RotateCw size={14} className="text-blue-600" />
+                    360° Surface Scan Coverage
+                  </span>
+                  <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                    360° Single-Clip Verified
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {coverage360.map((cov) => (
+                    <div
+                      key={cov.side}
+                      className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between ${
+                        cov.status === 'VERIFIED'
+                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                          : cov.status === 'NEEDS_REVIEW'
+                          ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                          : 'bg-rose-50/70 border-rose-200 text-rose-900'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold uppercase text-[10px]">{cov.side}</span>
+                        <span className="text-[11px]">{cov.status === 'VERIFIED' ? '✅' : cov.status === 'NEEDS_REVIEW' ? '⚠️' : '❌'}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-mono mt-1">
+                        {cov.coveragePercent}% coverage
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500 italic">
+                  ℹ️ Unverified surfaces are marked for manual review and do not falsely penalize compliance.
+                </p>
+              </div>
+            )}
+
             {/* Interactive Bounding-Box Evidence Viewer & Editor Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -1196,6 +1339,43 @@ export default function ScanPage() {
                 </div>
               </div>
             </div>
+
+            {/* 360° Surface Coverage Matrix in Step 3 */}
+            {coverage360 && (
+              <div className="bg-white rounded-2xl p-5 border border-blue-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                    <RotateCw size={14} className="text-blue-600" />
+                    360° Package Scan Surface Coverage Verification
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                    360° Evidence Corroborated
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {coverage360.map((cov) => (
+                    <div
+                      key={cov.side}
+                      className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between ${
+                        cov.status === 'VERIFIED'
+                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                          : cov.status === 'NEEDS_REVIEW'
+                          ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                          : 'bg-rose-50/70 border-rose-200 text-rose-900'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold uppercase text-[10px]">{cov.side}</span>
+                        <span className="text-[11px]">{cov.status === 'VERIFIED' ? '✅' : cov.status === 'NEEDS_REVIEW' ? '⚠️' : '❌'}</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-mono mt-1">
+                        {cov.coveragePercent}% coverage
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Detailed Rule Evaluations Table */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs">
