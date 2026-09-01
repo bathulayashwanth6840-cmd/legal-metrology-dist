@@ -7,15 +7,17 @@ import HistoryPage from './pages/HistoryPage';
 import ScanDetail from './pages/ScanDetail';
 import ProfilePage from './pages/ProfilePage';
 import RulesPage from './pages/RulesPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import ReportsPage from './pages/ReportsPage';
 
 function App() {
   return (
     <LanguageProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50 flex flex-col sm:flex-row text-gray-900 font-sans">
+        <div className="min-h-screen bg-slate-50 flex flex-col sm:flex-row text-gray-900 font-sans">
           {/* Main Sidebar / Tab Navigation */}
           <Navigation />
-          
+
           <div className="flex-1 flex flex-col min-w-0">
             {/* Indian National Tricolor Header Accent Strip */}
             <div className="h-1.5 w-full flex flex-shrink-0 shadow-sm">
@@ -23,12 +25,14 @@ function App() {
               <div className="flex-1 bg-white"></div>
               <div className="flex-1 bg-[var(--color-green)]"></div>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto">
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/scan" element={<ScanPage />} />
                 <Route path="/history" element={<HistoryPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/rules" element={<RulesPage />} />
                 <Route path="/scan/:id" element={<ScanDetail />} />
                 <Route path="/profile" element={<ProfilePage />} />

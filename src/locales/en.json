@@ -1,10 +1,13 @@
 {
   "nav": {
-    "home": "Home",
-    "scan": "Scan",
-    "history": "History",
-    "rules": "Rules",
-    "profile": "Profile"
+    "home": "Dashboard",
+    "scan": "New Inspection",
+    "video360": "360° Scan",
+    "history": "Inspection History",
+    "reports": "Reports",
+    "analytics": "Compliance Analytics",
+    "rules": "Rules & Act",
+    "profile": "Settings & Profile"
   },
   "home": {
     "title": "Enforcement Officer Portal",
