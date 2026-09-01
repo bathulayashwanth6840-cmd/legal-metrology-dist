@@ -1,75 +1,90 @@
-export default function ProfilePage({ user }: { user: any }) {
+import { useLanguage } from '../i18n/LanguageContext';
+import { ShieldCheck, User as UserIcon, Award, Building, Sparkles } from 'lucide-react';
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+export default function ProfilePage() {
+  const { t } = useLanguage();
+
+  const officer = {
+    name: "Legal Metrology Officer",
+    badgeId: "LMR-GOI-2026-INSP",
+    role: "FIELD_ENFORCEMENT_OFFICER",
+    jurisdiction: "All India Packaging Inspection Hub",
+    division: "Department of Consumer Affairs, Legal Metrology Division"
   };
 
-  if (!user) {
-    return <div className="p-6">Loading profile...</div>;
-  }
-
   return (
-    <div className="p-4 sm:p-6 pb-20 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Officer Profile</h2>
+    <div className="p-4 sm:p-6 pb-20 max-w-2xl mx-auto select-none">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center">
+          <UserIcon size={22} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">{t('profile.title')}</h2>
+          <p className="text-xs text-gray-500 font-medium">{t('profile.subtitle')}</p>
+        </div>
+      </div>
       
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Banner with logo */}
         <div className="bg-[var(--color-navy)] px-6 py-4 flex justify-between items-center text-white">
-          <span className="font-bold tracking-wide text-sm sm:text-base">DEPARTMENT OF LEGAL METROLOGY</span>
-          <img src="/legal_metrology_logo.jpg" alt="Logo" className="w-10 h-10 rounded-full border border-white bg-white" />
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={20} className="text-[var(--color-saffron)]" />
+            <span className="font-bold tracking-wide text-xs sm:text-sm uppercase">Legal Metrology Enforcement System</span>
+          </div>
+          <img src="/legal_metrology_logo.jpg" alt="Logo" className="w-9 h-9 rounded-full border border-white/50 bg-white" />
         </div>
         
         <div className="p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 border-b pb-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 border-b border-gray-100 pb-6 mb-6">
             {/* Officer Avatar */}
-            <div className="w-20 h-20 bg-blue-50 text-[var(--color-navy)] rounded-full flex items-center justify-center text-3xl font-bold border-2 border-[var(--color-navy)] flex-shrink-0">
-              {user.name ? user.name.charAt(0) : '?'}
+            <div className="w-18 h-18 bg-gradient-to-br from-blue-700 to-blue-900 text-white rounded-2xl flex items-center justify-center text-3xl font-black shadow-md flex-shrink-0">
+              L
             </div>
             
             {/* Officer Details */}
             <div className="text-center sm:text-left flex-grow">
-              <h3 className="text-2xl font-bold text-gray-800">{user.name || 'Officer'}</h3>
-              <p className="text-gray-500 text-sm mt-1">{user.email}</p>
+              <h3 className="text-xl font-bold text-gray-900">{officer.name}</h3>
+              <p className="text-gray-500 text-xs mt-0.5">{officer.division}</p>
               
               <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-2">
-                <span className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-bold flex items-center gap-1">
-                  🛡️ Active Inspector
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1">
+                  <Sparkles size={12} /> Active Inspector
                 </span>
-                <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold">
-                  Role: {user.role.toUpperCase()}
+                <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold flex items-center gap-1">
+                  <Award size={12} /> {officer.role}
                 </span>
               </div>
             </div>
           </div>
           
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 flex justify-between items-center">
+          <div className="space-y-3">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
               <div>
-                <span className="block text-xs font-semibold text-gray-400 uppercase">Inspector Badge ID</span>
-                <span className="font-mono text-sm font-semibold text-gray-700 mt-1 block">LMR-2026-{user.id}</span>
+                <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Badge Identifier</span>
+                <span className="font-mono text-sm font-bold text-gray-800 mt-0.5 block">{officer.badgeId}</span>
               </div>
-              <span className="text-xs text-gray-400 font-medium">Valid ID Card</span>
+              <span className="text-xs bg-white px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 font-semibold shadow-2xs">Authorized</span>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <span className="block text-xs font-semibold text-gray-400 uppercase mb-2">Authority Stamp</span>
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+              <div>
+                <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Jurisdiction</span>
+                <span className="text-sm font-medium text-gray-700 mt-0.5 block">{officer.jurisdiction}</span>
+              </div>
+              <Building size={18} className="text-gray-400" />
+            </div>
+
+            <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100">
+              <span className="block text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-2">Authority Standard</span>
               <div className="flex items-center gap-3">
-                <img src="/legal_metrology_logo.jpg" alt="Emblem" className="w-12 h-12 rounded-full border border-gray-200 bg-white" />
+                <img src="/legal_metrology_logo.jpg" alt="Emblem" className="w-10 h-10 rounded-full border border-blue-200 bg-white shadow-2xs" />
                 <div>
-                  <span className="text-sm font-bold text-gray-800 block">Legal Metrology Compliance Division</span>
-                  <span className="text-xs text-gray-500">Government of India</span>
+                  <span className="text-sm font-bold text-gray-800 block">Legal Metrology (Packaged Commodities) Rules, 2011</span>
+                  <span className="text-xs text-gray-500">Ministry of Consumer Affairs, Food and Public Distribution</span>
                 </div>
               </div>
             </div>
           </div>
-          
-          <button 
-            onClick={handleLogout}
-            className="mt-8 w-full bg-red-50 text-red-600 font-bold py-3 rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
-          >
-            Sign Out
-          </button>
         </div>
       </div>
     </div>
