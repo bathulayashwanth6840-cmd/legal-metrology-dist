@@ -3,10 +3,12 @@ import {
   Upload, ScanLine, CheckCircle2, AlertTriangle, XCircle,
   ChevronRight, Eye, FileText, Sparkles, ShieldCheck, RotateCcw,
   Info, Camera, Image as ImageIcon, Loader2, ClipboardCheck,
-  Crop, Trash2, RefreshCw, Layers
+  Crop, Trash2, RefreshCw, Layers, Check, AlertCircle
 } from 'lucide-react';
+import CameraCapture from '../components/CameraCapture';
 import ImageCropModal from '../components/ImageCropModal';
 import { compressImage } from '../utils/imageCompressor';
+import { checkImageQuality } from '../utils/imageQuality';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type WizardStep = 'UPLOAD' | 'EXTRACT' | 'REVIEW' | 'COMPLIANCE';
@@ -26,6 +28,11 @@ interface SideCardConfig {
   description: string;
   icon: string;
   badgeColor: string;
+}
+
+interface SideQualityInfo {
+  warnings: string[];
+  dimensions?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -54,6 +61,15 @@ const STEPS = [
   { id: 'EXTRACT',    label: 'Extract',     icon: Sparkles },
   { id: 'REVIEW',     label: 'Review',      icon: Eye },
   { id: 'COMPLIANCE', label: 'Compliance',  icon: ShieldCheck },
+];
+
+const PROGRESS_STAGES = [
+  'Optimizing & uploading product label images…',
+  'Reading product labels with OCR engine…',
+  'Extracting product information with Gemini AI…',
+  'Reconciling fields & cross-checking declarations…',
+  'Evaluating Legal Metrology rules…',
+  'Preparing compliance results…',
 ];
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
@@ -98,8 +114,25 @@ export default function ScanPage() {
     right: '',
   });
 
+  // Quality check warnings per side
+  const [qualityInfo, setQualityInfo] = useState<Record<ProductSide, SideQualityInfo>>({
+    front: { warnings: [] },
+    back:  { warnings: [] },
+    left:  { warnings: [] },
+    right: { warnings: [] },
+  });
+
   // Active side tab for reviewing images & OCR text in EXTRACT step
   const [activeSideTab, setActiveSideTab] = useState<string>('all');
+
+  // Camera Modal State
+  const [cameraModal, setCameraModal] = useState<{
+    isOpen: boolean;
+    side: ProductSide | null;
+  }>({
+    isOpen: false,
+    side: null,
+  });
 
   // Crop Modal State
   const [cropModal, setCropModal] = useState<{
@@ -112,12 +145,12 @@ export default function ScanPage() {
     imageSrc: '',
   });
 
-  const [scanResult, setScanResult]   = useState<any>(null);
-  const [fields, setFields]           = useState<Record<string, string>>({});
-  const [isScanning, setIsScanning]   = useState(false);
-  const [scanStage, setScanStage]     = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [error, setError]             = useState('');
+  const [scanResult, setScanResult]     = useState<any>(null);
+  const [fields, setFields]             = useState<Record<string, string>>({});
+  const [isScanning, setIsScanning]     = useState(false);
+  const [currentStageIdx, setCurrentStageIdx] = useState(0);
+  const [isVerifying, setIsVerifying]   = useState(false);
+  const [error, setError]               = useState('');
 
   // Hidden file inputs for each side
   const fileInputsRef = {
@@ -127,6 +160,9 @@ export default function ScanPage() {
     right: useRef<HTMLInputElement>(null),
   };
 
+  // General gallery upload ref for quick multi-select or first available slot
+  const generalGalleryInputRef = useRef<HTMLInputElement>(null);
+
   const previewUrlsRef = useRef<Record<ProductSide, string>>({
     front: '',
     back: '',
@@ -134,12 +170,12 @@ export default function ScanPage() {
     right: '',
   });
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Revoke blob URLs on unmount
   useEffect(() => {
     return () => {
-      Object.values(previewUrlsRef.current).forEach(url => {
+      Object.values(previewUrlsRef.current).forEach((url) => {
         if (url) URL.revokeObjectURL(url);
       });
     };
@@ -149,14 +185,17 @@ export default function ScanPage() {
   const applyFileForSide = useCallback(async (side: ProductSide, file: File) => {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.type)) {
-      setError(`Invalid file format on ${side} side. Please upload a JPG, PNG, or WEBP image.`);
+      setError(`Unsupported file type on ${side} side (${file.type || 'unknown'}). Please upload a JPG, JPEG, PNG, or WEBP image.`);
       return;
     }
 
     try {
-      // Optional compression to avoid gigantic payloads
-      const compressed = await compressImage(file, 2000, 0.9);
-      
+      // 1. Run lightweight client-side quality check
+      const quality = await checkImageQuality(file);
+
+      // 2. Compress and resize safely to max 1600px
+      const compressed = await compressImage(file, 1600, 0.88);
+
       // Revoke old side preview URL
       if (previewUrlsRef.current[side]) {
         URL.revokeObjectURL(previewUrlsRef.current[side]);
@@ -165,11 +204,18 @@ export default function ScanPage() {
       const newUrl = URL.createObjectURL(compressed);
       previewUrlsRef.current[side] = newUrl;
 
-      setImages(prev => ({ ...prev, [side]: compressed }));
-      setPreviewUrls(prev => ({ ...prev, [side]: newUrl }));
+      setImages((prev) => ({ ...prev, [side]: compressed }));
+      setPreviewUrls((prev) => ({ ...prev, [side]: newUrl }));
+      setQualityInfo((prev) => ({
+        ...prev,
+        [side]: {
+          warnings: quality.warnings,
+          dimensions: `${quality.width}×${quality.height}`,
+        },
+      }));
       setError('');
     } catch (e: any) {
-      setError(`Failed to load image for ${side} side: ${e.message || e}`);
+      setError(`Failed to process image for ${side} side: ${e.message || e}`);
     }
   }, []);
 
@@ -179,13 +225,43 @@ export default function ScanPage() {
     e.target.value = '';
   };
 
+  // Quick primary actions
+  const handlePrimaryCameraClick = () => {
+    // Pick the first empty side, or default to front
+    const emptySide = (PRODUCT_SIDES.find((s) => !images[s.side])?.side) || 'front';
+    setCameraModal({ isOpen: true, side: emptySide });
+  };
+
+  const handlePrimaryGalleryClick = () => {
+    generalGalleryInputRef.current?.click();
+  };
+
+  const handleGeneralGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles.length) return;
+
+    // Fill empty slots in order: front, back, left, right
+    const emptySides = PRODUCT_SIDES.filter((s) => !images[s.side]).map((s) => s.side);
+    const targetSides = emptySides.length > 0 ? emptySides : (['front', 'back', 'left', 'right'] as ProductSide[]);
+
+    selectedFiles.slice(0, 4).forEach((file, index) => {
+      const side = targetSides[index];
+      if (side) {
+        applyFileForSide(side, file);
+      }
+    });
+
+    e.target.value = '';
+  };
+
   const handleRemoveSide = (side: ProductSide) => {
     if (previewUrlsRef.current[side]) {
       URL.revokeObjectURL(previewUrlsRef.current[side]);
       previewUrlsRef.current[side] = '';
     }
-    setImages(prev => ({ ...prev, [side]: null }));
-    setPreviewUrls(prev => ({ ...prev, [side]: '' }));
+    setImages((prev) => ({ ...prev, [side]: null }));
+    setPreviewUrls((prev) => ({ ...prev, [side]: '' }));
+    setQualityInfo((prev) => ({ ...prev, [side]: { warnings: [] } }));
   };
 
   const handleOpenCrop = (side: ProductSide) => {
@@ -198,20 +274,35 @@ export default function ScanPage() {
     });
   };
 
-  const handleSaveCrop = (croppedFile: File) => {
+  const handleSaveCrop = async (croppedFile: File) => {
     if (!cropModal.side) return;
     const side = cropModal.side;
 
-    // Revoke old URL
-    if (previewUrlsRef.current[side]) {
-      URL.revokeObjectURL(previewUrlsRef.current[side]);
+    try {
+      // Re-run quality & compression on the newly cropped region
+      const compressed = await compressImage(croppedFile, 1600, 0.9);
+      const quality = await checkImageQuality(compressed);
+
+      // Revoke old URL
+      if (previewUrlsRef.current[side]) {
+        URL.revokeObjectURL(previewUrlsRef.current[side]);
+      }
+
+      const newUrl = URL.createObjectURL(compressed);
+      previewUrlsRef.current[side] = newUrl;
+
+      setImages((prev) => ({ ...prev, [side]: compressed }));
+      setPreviewUrls((prev) => ({ ...prev, [side]: newUrl }));
+      setQualityInfo((prev) => ({
+        ...prev,
+        [side]: {
+          warnings: quality.warnings,
+          dimensions: `${quality.width}×${quality.height}`,
+        },
+      }));
+    } catch (e: any) {
+      console.error('Error saving crop:', e);
     }
-
-    const newUrl = URL.createObjectURL(croppedFile);
-    previewUrlsRef.current[side] = newUrl;
-
-    setImages(prev => ({ ...prev, [side]: croppedFile }));
-    setPreviewUrls(prev => ({ ...prev, [side]: newUrl }));
   };
 
   // Count how many images are currently loaded
@@ -219,39 +310,39 @@ export default function ScanPage() {
 
   // ── Multi-Image Scan Handler ─────────────────────────────────────────────────
   const handleScan = async () => {
-    if (selectedCount === 0) {
-      setError('Please upload or capture at least one product label image to proceed.');
+    if (selectedCount === 0 || isScanning) {
+      if (selectedCount === 0) {
+        setError('Please upload or capture at least one product label image to proceed.');
+      }
       return;
     }
 
     setIsScanning(true);
     setError('');
+    setCurrentStageIdx(0);
 
-    const stages = [
-      'Uploading product label images…',
-      'Running OCR on all product sides…',
-      'Extracting declarations with Gemini AI…',
-      'Structuring Legal Metrology fields…',
-    ];
-    let si = 0;
-    setScanStage(stages[0]);
-    const iv = setInterval(() => {
-      si = Math.min(si + 1, stages.length - 1);
-      setScanStage(stages[si]);
-    }, 2000);
+    const stageInterval = setInterval(() => {
+      setCurrentStageIdx((prev) => (prev < PROGRESS_STAGES.length - 1 ? prev + 1 : prev));
+    }, 2200);
 
     try {
       const formData = new FormData();
       const activeSides: string[] = [];
 
-      // Append all selected images under 'images' and record their side names
-      (Object.keys(images) as ProductSide[]).forEach(side => {
+      // Append all selected images under 'images' and record side names in order
+      (Object.keys(images) as ProductSide[]).forEach((side) => {
         const file = images[side];
         if (file) {
           formData.append('images', file);
           activeSides.push(side);
         }
       });
+
+      // Backward compatibility: also append first image under 'image'
+      const firstSide = activeSides[0] as ProductSide;
+      if (firstSide && images[firstSide]) {
+        formData.append('image', images[firstSide] as File);
+      }
 
       // Send JSON sides mapping
       formData.append('sides', JSON.stringify(activeSides));
@@ -283,7 +374,7 @@ export default function ScanPage() {
 
       // Populate editable metrology fields from AI extraction
       const populated: Record<string, string> = {};
-      METROLOGY_FIELDS.forEach(f => {
+      METROLOGY_FIELDS.forEach((f) => {
         populated[f.key] = getGeminiField(data, f.key);
       });
       setFields(populated);
@@ -291,19 +382,19 @@ export default function ScanPage() {
     } catch (err: any) {
       setError(err.message || 'An error occurred while scanning the product.');
     } finally {
-      clearInterval(iv);
+      clearInterval(stageInterval);
       setIsScanning(false);
-      setScanStage('');
+      setCurrentStageIdx(0);
     }
   };
 
   // ── Field Edit Handler ───────────────────────────────────────────────────────
   const handleField = (key: string, val: string) =>
-    setFields(prev => ({ ...prev, [key]: val }));
+    setFields((prev) => ({ ...prev, [key]: val }));
 
   // ── Compliance Verification ──────────────────────────────────────────────────
   const handleCompliance = async () => {
-    if (!scanResult) return;
+    if (!scanResult || isVerifying) return;
     setIsVerifying(true);
     setError('');
     try {
@@ -341,7 +432,7 @@ export default function ScanPage() {
 
   // ── Reset ────────────────────────────────────────────────────────────────────
   const startOver = () => {
-    (Object.keys(previewUrlsRef.current) as ProductSide[]).forEach(side => {
+    (Object.keys(previewUrlsRef.current) as ProductSide[]).forEach((side) => {
       if (previewUrlsRef.current[side]) {
         URL.revokeObjectURL(previewUrlsRef.current[side]);
         previewUrlsRef.current[side] = '';
@@ -350,6 +441,12 @@ export default function ScanPage() {
 
     setImages({ front: null, back: null, left: null, right: null });
     setPreviewUrls({ front: '', back: '', left: '', right: '' });
+    setQualityInfo({
+      front: { warnings: [] },
+      back:  { warnings: [] },
+      left:  { warnings: [] },
+      right: { warnings: [] },
+    });
     setScanResult(null);
     setFields({});
     setError('');
@@ -360,7 +457,7 @@ export default function ScanPage() {
   // ── Derived Metrics ──────────────────────────────────────────────────────────
   const violationCodes = new Set((scanResult?.violations || []).map((v: any) => v.rule_code));
   const isCompliant = (scanResult?.violations?.length === 0) || scanResult?.status === 'compliant';
-  const passCount    = METROLOGY_FIELDS.filter(f => !violationCodes.has(f.ruleCode) && fields[f.key]?.trim()).length;
+  const passCount    = METROLOGY_FIELDS.filter((f) => !violationCodes.has(f.ruleCode) && fields[f.key]?.trim()).length;
   const failCount    = (scanResult?.violations || []).filter((v: any) => v.severity === 'HIGH').length;
   const warnCount    = (scanResult?.violations || []).filter((v: any) => v.severity === 'MEDIUM').length;
 
@@ -372,9 +469,7 @@ export default function ScanPage() {
     return fields[f.key]?.trim() ? 'PASS' : 'MISSING';
   };
 
-  const currentStepIdx = STEPS.findIndex(s => s.id === step);
-
-  // Available side OCR results if multi-side backend output is present
+  const currentStepIdx = STEPS.findIndex((s) => s.id === step);
   const sidesOcr = scanResult?.extracted_fields?.sides_ocr || {};
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -382,8 +477,8 @@ export default function ScanPage() {
     <div style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: '#f0f4f8', minHeight: '100vh' }}>
 
       {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #0f2027 0%, #1a3a5c 60%, #0f2027 100%)', padding: '28px 24px 24px', color: '#fff' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0f2027 0%, #1a3a5c 60%, #0f2027 100%)', padding: '28px 20px 24px', color: '#fff' }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -396,11 +491,12 @@ export default function ScanPage() {
                 Product Label Multi-Side Compliance Scanner
               </h1>
               <p style={{ fontSize: 13, color: '#94a3b8', margin: '6px 0 0', lineHeight: 1.4 }}>
-                Capture or upload up to 4 sides of the product (Front, Back, Left, Right), crop text areas, and run AI Legal Metrology compliance.
+                Capture or upload up to 4 sides of the packaged product (Front, Back, Left, Right), crop text areas, and run AI Legal Metrology compliance.
               </p>
             </div>
             {step !== 'UPLOAD' && (
               <button
+                type="button"
                 onClick={startOver}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#e2e8f0', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
@@ -442,7 +538,7 @@ export default function ScanPage() {
       </div>
 
       {/* ── Main Content ────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 16px 48px' }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '24px 16px 48px' }}>
 
         {/* Error Banner */}
         {error && (
@@ -456,70 +552,119 @@ export default function ScanPage() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════
-            STEP 1: UPLOAD & CROP (4-Side Cards Grid)
+            STEP 1: UPLOAD & CROP (Modern Scan UI with 4 Product Sides)
         ════════════════════════════════════════════════════════════════ */}
         {step === 'UPLOAD' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-            {/* Top Bar: Counter & Quick Instructions */}
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Layers size={18} color="#3b82f6" />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1e293b' }}>Product Image Slots</h3>
-                  <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Select or capture 1 to 4 sides of the product packaging</p>
-                </div>
+            {/* Top Action Bar: Primary options (Use Camera / Upload Images) */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1e293b' }}>
+                  Product Packaging Scanner
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                  Use camera or gallery upload. Capture 1 to 4 sides of the packaged item.
+                </p>
               </div>
 
-              {/* Status Badge & Scan Button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: '6px 14px',
-                  borderRadius: 20,
-                  background: selectedCount > 0 ? '#ecfdf5' : '#f8fafc',
-                  color: selectedCount > 0 ? '#059669' : '#64748b',
-                  border: `1px solid ${selectedCount > 0 ? '#a7f3d0' : '#e2e8f0'}`,
-                }}>
-                  Images Selected: {selectedCount} / 4
-                </span>
-
+              {/* Primary Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <button
-                  onClick={handleScan}
-                  disabled={selectedCount === 0 || isScanning}
+                  type="button"
+                  onClick={handlePrimaryCameraClick}
+                  disabled={isScanning}
                   style={{
-                    background: selectedCount === 0 || isScanning ? '#94a3b8' : 'linear-gradient(135deg, #1d4ed8, #4f46e5)',
+                    background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: 10,
-                    padding: '10px 24px',
+                    padding: '11px 20px',
                     fontSize: 14,
                     fontWeight: 700,
-                    cursor: selectedCount === 0 || isScanning ? 'not-allowed' : 'pointer',
+                    cursor: isScanning ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    boxShadow: selectedCount > 0 && !isScanning ? '0 4px 14px rgba(37,99,235,0.3)' : 'none',
+                    boxShadow: '0 4px 12px rgba(59,130,246,0.25)',
                     transition: 'all 0.2s',
                   }}
                 >
-                  {isScanning ? (
-                    <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> {scanStage || 'Scanning…'}</>
-                  ) : (
-                    <><ScanLine size={16} /> Scan Product</>
-                  )}
+                  <Camera size={18} /> Use Camera
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrimaryGalleryClick}
+                  disabled={isScanning}
+                  style={{
+                    background: '#f8fafc',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 10,
+                    padding: '11px 20px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: isScanning ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <Upload size={18} color="#475569" /> Upload Images
+                </button>
+
+                {/* Hidden general gallery input (supports multi-select) */}
+                <input
+                  ref={generalGalleryInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  multiple
+                  onChange={handleGeneralGallerySelect}
+                  style={{ display: 'none' }}
+                />
               </div>
             </div>
 
+            {/* Product Side Slots Overview Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '0 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Layers size={18} color="#3b82f6" />
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b' }}>
+                  Product Side Slots (Front, Back, Left, Right)
+                </span>
+              </div>
+              <span style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '4px 12px',
+                borderRadius: 16,
+                background: selectedCount > 0 ? '#ecfdf5' : '#f1f5f9',
+                color: selectedCount > 0 ? '#059669' : '#64748b',
+                border: `1px solid ${selectedCount > 0 ? '#a7f3d0' : '#e2e8f0'}`,
+              }}>
+                {selectedCount} of 4 Images Loaded
+              </span>
+            </div>
+
             {/* 4 Cards Grid (Desktop: 2x2, Mobile: 1-col) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-              {PRODUCT_SIDES.map(sideConfig => {
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+              {PRODUCT_SIDES.map((sideConfig) => {
                 const side = sideConfig.side;
                 const preview = previewUrls[side];
+                const quality = qualityInfo[side];
 
                 return (
                   <div
@@ -528,7 +673,7 @@ export default function ScanPage() {
                       background: '#fff',
                       borderRadius: 16,
                       border: `1.5px solid ${preview ? '#93c5fd' : '#e2e8f0'}`,
-                      boxShadow: preview ? '0 4px 14px rgba(59,130,246,0.08)' : '0 1px 6px rgba(0,0,0,0.04)',
+                      boxShadow: preview ? '0 4px 14px rgba(59,130,246,0.08)' : '0 1px 4px rgba(0,0,0,0.03)',
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
@@ -537,7 +682,7 @@ export default function ScanPage() {
                   >
                     {/* Card Header */}
                     <div style={{
-                      padding: '14px 18px',
+                      padding: '12px 16px',
                       background: preview ? '#f0f7ff' : '#f8fafc',
                       borderBottom: '1px solid #f1f5f9',
                       display: 'flex',
@@ -547,78 +692,109 @@ export default function ScanPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 16 }}>{sideConfig.icon}</span>
                         <div>
-                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1e293b', textTransform: 'capitalize' }}>
+                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1e293b', textTransform: 'uppercase' }}>
                             {sideConfig.label}
                           </h4>
                           <span style={{ fontSize: 11, color: '#64748b' }}>{sideConfig.description}</span>
                         </div>
                       </div>
 
-                      {preview && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: 12 }}>
-                          ✓ Ready
+                      {preview ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <Check size={11} /> Ready
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: 12 }}>
+                          Empty
                         </span>
                       )}
                     </div>
 
                     {/* Card Body */}
-                    <div style={{ padding: 18, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       {!preview ? (
+                        // State 1: EMPTY
                         <div
-                          onClick={() => fileInputsRef[side].current?.click()}
                           style={{
                             border: '2px dashed #cbd5e1',
                             borderRadius: 12,
-                            padding: '36px 16px',
+                            padding: '24px 12px',
                             textAlign: 'center',
-                            cursor: 'pointer',
                             background: '#fafbfc',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: 10,
-                            minHeight: 220,
-                            transition: 'all 0.2s',
+                            minHeight: 180,
                           }}
                         >
-                          <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Upload size={22} color="#3b82f6" />
+                          <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ImageIcon size={20} color="#3b82f6" />
                           </div>
                           <div>
-                            <p style={{ margin: 0, fontWeight: 700, color: '#1e293b', fontSize: 14 }}>
-                              Upload or Snap {sideConfig.label}
+                            <p style={{ margin: 0, fontWeight: 700, color: '#1e293b', fontSize: 13 }}>
+                              {sideConfig.label}
                             </p>
-                            <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>
-                              JPG, PNG, WEBP · Drag & drop
+                            <p style={{ margin: '3px 0 0', color: '#94a3b8', fontSize: 11 }}>
+                              JPG, JPEG, PNG, WEBP
                             </p>
                           </div>
-                          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4, width: '100%', maxWidth: 220 }}>
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); fileInputsRef[side].current?.click(); }}
-                              style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => setCameraModal({ isOpen: true, side })}
+                              style={{
+                                flex: 1,
+                                background: '#1e40af',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: '8px 10px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 4,
+                              }}
                             >
-                              <Upload size={12} /> Browse
+                              <Camera size={13} /> Capture
                             </button>
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); fileInputsRef[side].current?.click(); }}
-                              style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => fileInputsRef[side].current?.click()}
+                              style={{
+                                flex: 1,
+                                background: '#f1f5f9',
+                                color: '#475569',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 8,
+                                padding: '8px 10px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 4,
+                              }}
                             >
-                              <Camera size={12} /> Camera
+                              <Upload size={13} /> Upload
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        // State 3 & 5: IMAGE PREVIEW / READY
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           {/* Image preview box */}
                           <div style={{
-                            height: 200,
+                            height: 180,
                             borderRadius: 10,
                             overflow: 'hidden',
                             border: '1px solid #e2e8f0',
-                            background: '#f8fafc',
+                            background: '#0f172a',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -629,7 +805,24 @@ export default function ScanPage() {
                               alt={`${sideConfig.label} preview`}
                               style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                             />
+                            {quality.dimensions && (
+                              <span style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>
+                                {quality.dimensions}
+                              </span>
+                            )}
                           </div>
+
+                          {/* Quality Check Warnings (if any) */}
+                          {quality.warnings.length > 0 && (
+                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                              <AlertCircle size={13} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+                              <div style={{ fontSize: 11, color: '#92400e', lineHeight: 1.4 }}>
+                                {quality.warnings.map((w, idx) => (
+                                  <div key={idx}>{w}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Action Toolbar */}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
@@ -641,7 +834,7 @@ export default function ScanPage() {
                                 color: '#2563eb',
                                 border: '1px solid #bfdbfe',
                                 borderRadius: 8,
-                                padding: '8px 0',
+                                padding: '7px 0',
                                 fontSize: 12,
                                 fontWeight: 700,
                                 cursor: 'pointer',
@@ -657,13 +850,13 @@ export default function ScanPage() {
 
                             <button
                               type="button"
-                              onClick={() => fileInputsRef[side].current?.click()}
+                              onClick={() => setCameraModal({ isOpen: true, side })}
                               style={{
                                 background: '#f8fafc',
                                 color: '#475569',
                                 border: '1px solid #e2e8f0',
                                 borderRadius: 8,
-                                padding: '8px 0',
+                                padding: '7px 0',
                                 fontSize: 12,
                                 fontWeight: 600,
                                 cursor: 'pointer',
@@ -673,7 +866,7 @@ export default function ScanPage() {
                                 gap: 4,
                               }}
                             >
-                              <RefreshCw size={13} /> Replace
+                              <RefreshCw size={13} /> Retake
                             </button>
 
                             <button
@@ -684,7 +877,7 @@ export default function ScanPage() {
                                 color: '#dc2626',
                                 border: '1px solid #fecaca',
                                 borderRadius: 8,
-                                padding: '8px 0',
+                                padding: '7px 0',
                                 fontSize: 12,
                                 fontWeight: 600,
                                 cursor: 'pointer',
@@ -700,7 +893,7 @@ export default function ScanPage() {
                         </div>
                       )}
 
-                      {/* Hidden File Input with Camera Capture Support */}
+                      {/* Hidden File Input for this specific side */}
                       <input
                         ref={fileInputsRef[side]}
                         type="file"
@@ -714,18 +907,30 @@ export default function ScanPage() {
               })}
             </div>
 
-            {/* Bottom Scan CTA */}
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Info size={16} color="#3b82f6" />
+            {/* Bottom Scan CTA Card */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 14,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Info size={18} color="#3b82f6" />
                 <span style={{ fontSize: 13, color: '#475569' }}>
                   {selectedCount === 0
-                    ? 'Upload at least one product label image (Front, Back, Left, or Right) to start.'
-                    : `Ready to scan ${selectedCount} image${selectedCount > 1 ? 's' : ''} with EasyOCR and Gemini AI.`}
+                    ? 'Upload or capture at least one product label image (Front, Back, Left, or Right) to start compliance scan.'
+                    : `Ready to analyze ${selectedCount} packaging image${selectedCount > 1 ? 's' : ''} with PaddleOCR and Gemini Vision.`}
                 </span>
               </div>
 
               <button
+                type="button"
                 onClick={handleScan}
                 disabled={selectedCount === 0 || isScanning}
                 style={{
@@ -745,12 +950,78 @@ export default function ScanPage() {
                 }}
               >
                 {isScanning ? (
-                  <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> {scanStage || 'Processing Product…'}</>
+                  <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing product labels…</>
                 ) : (
-                  <><ScanLine size={18} /> Scan Product</>
+                  <><ScanLine size={18} /> Scan Product Labels ({selectedCount})</>
                 )}
               </button>
             </div>
+
+            {/* ── Scanning Progress Modal / Overlay (Part 9 & 10) ──────────── */}
+            {isScanning && (
+              <div style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(15, 23, 42, 0.85)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 60,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16,
+              }}>
+                <div style={{
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: 20,
+                  padding: '32px 28px',
+                  maxWidth: 480,
+                  width: '100%',
+                  color: '#fff',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 20,
+                }}>
+                  {/* Progress Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59,130,246,0.2)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#f8fafc' }}>
+                        Analyzing Product Labels
+                      </h3>
+                      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94a3b8' }}>
+                        Processing {selectedCount} packaging image{selectedCount > 1 ? 's' : ''} through compliance pipeline
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Multi-stage Progress Stepper */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#0f172a', padding: '16px 18px', borderRadius: 12, border: '1px solid #1e293b' }}>
+                    {PROGRESS_STAGES.map((stageText, idx) => {
+                      const isDone = idx < currentStageIdx;
+                      const isCurrent = idx === currentStageIdx;
+                      return (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: isDone ? '#22c55e' : isCurrent ? '#3b82f6' : '#334155', color: '#fff', flexShrink: 0 }}>
+                            {isDone ? '✓' : isCurrent ? '⏳' : idx + 1}
+                          </div>
+                          <span style={{ fontSize: 12, color: isDone ? '#86efac' : isCurrent ? '#93c5fd' : '#64748b', fontWeight: isCurrent ? 700 : 500 }}>
+                            {stageText}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p style={{ margin: 0, fontSize: 11, color: '#64748b', textAlign: 'center' }}>
+                    Please wait while LegalMetriX extracts declarations and verifies packaging rules.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -779,6 +1050,7 @@ export default function ScanPage() {
                   {/* Side Selector Tabs if multi-images present */}
                   <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                     <button
+                      type="button"
                       onClick={() => setActiveSideTab('all')}
                       style={{
                         background: activeSideTab === 'all' ? '#1d4ed8' : '#f1f5f9',
@@ -793,12 +1065,13 @@ export default function ScanPage() {
                     >
                       All Sides
                     </button>
-                    {PRODUCT_SIDES.map(s => {
+                    {PRODUCT_SIDES.map((s) => {
                       if (!previewUrls[s.side]) return null;
                       const active = activeSideTab === s.side;
                       return (
                         <button
                           key={s.side}
+                          type="button"
                           onClick={() => setActiveSideTab(s.side)}
                           style={{
                             background: active ? '#1d4ed8' : '#f1f5f9',
@@ -828,7 +1101,7 @@ export default function ScanPage() {
                       />
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: selectedCount > 1 ? '1fr 1fr' : '1fr', gap: 8, padding: 8, width: '100%' }}>
-                        {PRODUCT_SIDES.map(s => {
+                        {PRODUCT_SIDES.map((s) => {
                           const src = previewUrls[s.side];
                           if (!src) return null;
                           return (
@@ -890,6 +1163,7 @@ export default function ScanPage() {
                     <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1e293b' }}>AI Extracted Declarations</h2>
                   </div>
                   <button
+                    type="button"
                     onClick={startOver}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                   >
@@ -897,7 +1171,7 @@ export default function ScanPage() {
                   </button>
                 </div>
                 <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
-                  Review and verify AI-structured values across all scanned product sides before running the compliance engine.
+                  Review and verify structured declarations extracted from packaging images before running the compliance engine.
                 </p>
               </div>
 
@@ -905,7 +1179,7 @@ export default function ScanPage() {
               <div style={{ margin: '16px 20px 0', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <AlertTriangle size={15} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
                 <p style={{ margin: 0, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-                  <strong>Inspector Verification:</strong> Gemini AI auto-populated detected declarations from all sides. Please verify or edit any field marked with <strong>Review Required</strong> before finalizing compliance.
+                  <strong>Inspector Verification:</strong> AI auto-populated detected declarations from all sides. Please verify or edit any field marked with <strong>Review Required</strong> before finalizing compliance.
                 </p>
               </div>
 
@@ -936,7 +1210,7 @@ export default function ScanPage() {
                       <input
                         type="text"
                         value={val}
-                        onChange={e => handleField(f.key, e.target.value)}
+                        onChange={(e) => handleField(f.key, e.target.value)}
                         placeholder={isEmpty ? 'Not detected — enter manually' : ''}
                         style={{
                           width: '100%',
@@ -951,8 +1225,8 @@ export default function ScanPage() {
                           outline: 'none',
                           transition: 'border-color 0.2s',
                         }}
-                        onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                        onBlur={e => e.target.style.borderColor = isEmpty ? '#fed7aa' : '#d1fae5'}
+                        onFocus={(e) => (e.target.style.borderColor = '#3b82f6')}
+                        onBlur={(e) => (e.target.style.borderColor = isEmpty ? '#fed7aa' : '#d1fae5')}
                       />
                       <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94a3b8' }}>{f.condition}</p>
                     </div>
@@ -964,10 +1238,11 @@ export default function ScanPage() {
               <div style={{ padding: '16px 20px 20px', borderTop: '1px solid #f1f5f9' }}>
                 <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
                   <p style={{ margin: 0, fontSize: 12, color: '#0c4a6e', lineHeight: 1.5 }}>
-                    <strong>Ready to verify?</strong> The local Legal Metrology rule engine will evaluate your verified declarations across all packaging rules.
+                    <strong>Ready to verify?</strong> The Legal Metrology rule engine will evaluate your verified declarations across all packaging rules.
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={handleCompliance}
                   disabled={isVerifying}
                   style={{
@@ -1047,7 +1322,7 @@ export default function ScanPage() {
                   { label: 'PASS',     value: passCount,  color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
                   { label: 'WARNINGS', value: warnCount,  color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
                   { label: 'FAILURES', value: failCount,  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-                ].map(m => (
+                ].map((m) => (
                   <div key={m.label} style={{ background: m.bg, border: `1px solid ${m.border}`, borderRadius: 10, padding: '10px 18px', textAlign: 'center', minWidth: 72 }}>
                     <div style={{ fontSize: 10, fontWeight: 800, color: m.color, letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
                     <div style={{ fontSize: 28, fontWeight: 900, color: m.color, lineHeight: 1 }}>{m.value}</div>
@@ -1066,13 +1341,13 @@ export default function ScanPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                      {['Field', 'Extracted Value', 'Rule', 'Status', 'Notes'].map(h => (
+                      {['Field', 'Extracted Value', 'Rule', 'Status', 'Notes'].map((h) => (
                         <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {METROLOGY_FIELDS.map(f => {
+                    {METROLOGY_FIELDS.map((f) => {
                       const st = step === 'COMPLIANCE' ? getFieldStatus(f) : 'MISSING';
                       const val = fields[f.key];
                       const violation = (scanResult?.violations || []).find((v: any) => v.rule_code === f.ruleCode);
@@ -1109,6 +1384,7 @@ export default function ScanPage() {
             {/* Action buttons */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
               <button
+                type="button"
                 onClick={() => setStep('EXTRACT')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e2e8f0', color: '#475569', padding: '12px 24px', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
               >
@@ -1123,6 +1399,7 @@ export default function ScanPage() {
                 <FileText size={15} color="#2563eb" /> Download PDF Report
               </a>
               <button
+                type="button"
                 onClick={startOver}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg, #0f2027, #1a3a5c)', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(15,32,39,0.3)' }}
               >
@@ -1133,6 +1410,18 @@ export default function ScanPage() {
         )}
       </div>
 
+      {/* ── Camera Capture Modal ─────────────────────────────────────────── */}
+      <CameraCapture
+        isOpen={cameraModal.isOpen}
+        sideLabel={cameraModal.side ? cameraModal.side.toUpperCase() : 'PRODUCT'}
+        onCapture={(file) => {
+          if (cameraModal.side) {
+            applyFileForSide(cameraModal.side, file);
+          }
+        }}
+        onClose={() => setCameraModal({ isOpen: false, side: null })}
+      />
+
       {/* ── Client-side Image Crop Modal ─────────────────────────────────── */}
       <ImageCropModal
         isOpen={cropModal.isOpen}
@@ -1140,6 +1429,7 @@ export default function ScanPage() {
         sideLabel={cropModal.side ? cropModal.side.toUpperCase() : 'PRODUCT'}
         onClose={() => setCropModal({ isOpen: false, side: null, imageSrc: '' })}
         onSaveCrop={handleSaveCrop}
+        onSkipCrop={() => setCropModal({ isOpen: false, side: null, imageSrc: '' })}
       />
 
       {/* CSS Keyframes */}
