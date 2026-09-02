@@ -216,43 +216,43 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* ── 3-Step Inspection Process Overview ──────────────────────────── */}
+        {/* ── Officer-Centric Inspection Workflow Overview ──────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-2xs border border-slate-200 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-bold">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center flex-shrink-0 font-bold">
               <Camera size={22} />
             </div>
             <div>
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block">STEP 1</span>
-              <h3 className="font-bold text-slate-800 text-sm mt-0.5">Flexible Capture</h3>
+              <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest block">STAGE 1</span>
+              <h3 className="font-bold text-slate-800 text-sm mt-0.5">Package Capture & Identification</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Scan using Single Image, 4-Side Multi-Panel Grid, or 360° Continuous Video.
+                Capture single images, 4-panel multi-surfaces, or 360° rotation video with barcode decoding.
               </p>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-2xs border border-slate-200 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 font-bold">
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center justify-center flex-shrink-0 font-bold">
               <Sparkles size={22} />
             </div>
             <div>
-              <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest block">STEP 2</span>
-              <h3 className="font-bold text-slate-800 text-sm mt-0.5">AI Evidence Fusion</h3>
+              <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest block">STAGE 2</span>
+              <h3 className="font-bold text-slate-800 text-sm mt-0.5">AI Evidence Assistance Layer</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                PaddleOCR + Gemini Vision identify declarations with exact bounding box coordinates.
+                PaddleOCR + Gemini Vision assist by parsing mandatory declarations without guessing uncertain text.
               </p>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-2xs border border-slate-200 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 font-bold">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-center flex-shrink-0 font-bold">
               <ShieldCheck size={22} />
             </div>
             <div>
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">STEP 3</span>
-              <h3 className="font-bold text-slate-800 text-sm mt-0.5">Statutory Verification</h3>
+              <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest block">STAGE 3</span>
+              <h3 className="font-bold text-slate-800 text-sm mt-0.5">Officer Verification & Legal Report</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                100-point Legal Metrology rule engine evaluates mandatory declarations and generates PDF reports.
+                Deterministic rule engine evaluates LMR 2011; officer confirms verdict and generates certified PDF docket.
               </p>
             </div>
           </div>

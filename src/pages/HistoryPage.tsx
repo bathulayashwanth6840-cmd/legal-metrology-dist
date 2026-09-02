@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Trash2, History as HistoryIcon, AlertTriangle, ShieldCheck,
-  CheckSquare, Square, MinusSquare, Check, X, AlertCircle, Loader2
+  CheckSquare, Square, MinusSquare, Check, X, AlertCircle, Loader2,
+  Search
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -18,6 +19,8 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'compliant' | 'needs_review' | 'non_compliant'>('ALL');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [deleteModal, setDeleteModal] = useState<DeleteModalState>({
     isOpen: false,
@@ -188,6 +191,13 @@ export default function HistoryPage() {
   const isAllSelected = scans.length > 0 && selectedIds.length === scans.length;
   const isPartiallySelected = selectedIds.length > 0 && selectedIds.length < scans.length;
 
+  const filteredScans = scans.filter((s) => {
+    const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
+    const prodName = (s.extracted_fields?.semantic_fields?.product_name || s.extracted_fields?.product_name || `Scan #${s.id}`).toLowerCase();
+    const matchesSearch = searchQuery.trim() === '' || prodName.includes(searchQuery.toLowerCase()) || String(s.id).includes(searchQuery);
+    return matchesStatus && matchesSearch;
+  });
+
   return (
     <div className="p-4 sm:p-6 pb-24 max-w-6xl mx-auto select-none relative">
       {/* ── Toast Notification Banner ────────────────────────────────────── */}
@@ -209,7 +219,7 @@ export default function HistoryPage() {
       )}
 
       {/* ── Header & Multi-Select Action Bar ──────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
             <HistoryIcon size={22} />
@@ -259,6 +269,37 @@ export default function HistoryPage() {
         )}
       </div>
 
+      {/* ── Search & Filter Controls ──────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search product name, ID or keyword..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 text-xs bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          {(['ALL', 'compliant', 'needs_review', 'non_compliant'] as const).map((st) => (
+            <button
+              key={st}
+              type="button"
+              onClick={() => setStatusFilter(st)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors whitespace-nowrap cursor-pointer ${
+                statusFilter === st
+                  ? 'bg-blue-900 text-white shadow-xs'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {st === 'ALL' ? 'All' : st.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ── Content Grid ─────────────────────────────────────────────────── */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -266,11 +307,13 @@ export default function HistoryPage() {
             <div key={i} className="h-28 bg-gray-200 rounded-xl animate-pulse"></div>
           ))}
         </div>
-      ) : scans.length === 0 ? (
+      ) : filteredScans.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-2xs">
           <HistoryIcon size={40} className="mx-auto text-gray-300 mb-3" />
           <p className="text-sm font-medium text-gray-500 max-w-sm mx-auto">
-            {t('history.empty')}
+            {searchQuery || statusFilter !== 'ALL'
+              ? 'No matching inspection records found for the specified filters.'
+              : t('history.empty')}
           </p>
           <Link
             to="/scan"
@@ -281,7 +324,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {scans.map((scan) => {
+          {filteredScans.map((scan) => {
             const isSelected = selectedIds.includes(scan.id);
             const scoreObj = scan.compliance_score || scan.extracted_fields?.compliance_score;
             const score = scoreObj?.score;
