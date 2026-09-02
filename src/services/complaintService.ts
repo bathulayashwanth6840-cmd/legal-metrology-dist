@@ -10,7 +10,18 @@ import type {
   AuditLogEntry
 } from '../types/complaint';
 
-const STORAGE_KEY = 'legalmetrix_complaints_v2';
+const STORAGE_KEY = 'legalmetrix_complaints_live_v1';
+
+// One-time automatic purge of previous mock/demo storage keys
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('legalmetrix_complaints_v1');
+    localStorage.removeItem('legalmetrix_complaints_v2');
+    localStorage.removeItem('legalmetrix_complaints');
+  } catch (e) {
+    // Ignore storage errors in restricted contexts
+  }
+}
 
 // Helper to get all stored complaints
 export function getStoredComplaints(): ComplaintRecord[] {
@@ -36,6 +47,18 @@ export function saveComplaints(complaints: ComplaintRecord[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(complaints));
   } catch (e) {
     console.error('Error saving complaints to storage:', e);
+  }
+}
+
+// Helper to clear all complaints
+export function clearAllComplaints(): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    localStorage.removeItem('legalmetrix_complaints_v1');
+    localStorage.removeItem('legalmetrix_complaints_v2');
+    localStorage.removeItem('legalmetrix_complaints');
+  } catch (e) {
+    console.error('Error clearing complaints storage:', e);
   }
 }
 

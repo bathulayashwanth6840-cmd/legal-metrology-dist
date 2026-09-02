@@ -3,9 +3,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileWarning, Search, Plus,
-  Eye, RefreshCw
+  Eye, RefreshCw, Trash2, Camera, Sparkles
 } from 'lucide-react';
-import { getStoredComplaints, createComplaintRecord } from '../services/complaintService';
+import {
+  getStoredComplaints,
+  createComplaintRecord,
+  clearAllComplaints
+} from '../services/complaintService';
 import type { ComplaintRecord, ComplaintStatus } from '../types/complaint';
 import { useRole } from '../context/RoleContext';
 import NewComplaintModal from '../components/NewComplaintModal';
@@ -74,6 +78,13 @@ export default function ComplaintsPage() {
     const data = getStoredComplaints();
     setComplaints(data);
     setLoading(false);
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm('Are you sure you want to clear all complaint and enquiry records?')) {
+      clearAllComplaints();
+      setComplaints([]);
+    }
   };
 
   const handleCreateComplaint = (payload: Parameters<typeof createComplaintRecord>[0]) => {
@@ -151,22 +162,34 @@ export default function ComplaintsPage() {
 
             {/* Header Actions */}
             <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to="/scan"
+                className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <Camera size={16} />
+                <span>Scan Product to Verify</span>
+              </Link>
+
               <button
                 type="button"
                 onClick={() => setIsNewModalOpen(true)}
-                className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+                className="px-4 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <Plus size={16} />
-                <span>File New Complaint</span>
+                <span>File Manual Docket</span>
               </button>
 
-              <Link
-                to="/track"
-                className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Search size={16} />
-                <span>Citizen Track View</span>
-              </Link>
+              {complaints.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="px-4 py-3.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs rounded-2xl border border-rose-500/30 flex items-center gap-2 transition-all cursor-pointer"
+                  title="Clear All History"
+                >
+                  <Trash2 size={16} />
+                  <span>Clear History</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -296,7 +319,7 @@ export default function ComplaintsPage() {
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by Complaint ID (e.g. LM-2026-004281), Product, Inspection #, or Location..."
+              placeholder="Search by Complaint ID (e.g. LM-2026-XXXXXX), Product, Inspection #, or Location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
@@ -349,7 +372,7 @@ export default function ComplaintsPage() {
           </div>
         </div>
 
-        {/* Complaints Table */}
+        {/* Complaints Table / Clean Empty State */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div>
@@ -365,32 +388,56 @@ export default function ComplaintsPage() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/80">
-                  <th className="p-3.5">Complaint ID</th>
-                  <th className="p-3.5">Product & Brand</th>
-                  <th className="p-3.5">Date & Jurisdiction</th>
-                  <th className="p-3.5">Submitted By</th>
-                  <th className="p-3.5">Current Status</th>
-                  <th className="p-3.5">Assigned Authority</th>
-                  <th className="p-3.5">Priority</th>
-                  <th className="p-3.5">Findings</th>
-                  <th className="p-3.5 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredComplaints.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-16 text-slate-400">
-                      <FileWarning size={36} className="mx-auto mb-2 text-slate-300" />
-                      <p className="font-bold text-sm text-slate-600">No matching complaint records found</p>
-                      <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or search query.</p>
-                    </td>
+          {filteredComplaints.length === 0 ? (
+            <div className="py-20 px-4 text-center max-w-lg mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center mx-auto shadow-xs">
+                <FileWarning size={32} />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-black text-slate-900">
+                  No Active Complaints or Enquiries
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Records will appear here only when you scan a packaged commodity and escalate any detected non-compliances, or when a manual docket is filed.
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  to="/scan"
+                  className="px-6 py-3 bg-[var(--color-navy)] hover:bg-blue-900 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <Sparkles size={14} className="text-amber-400" />
+                  <span>Start Inspection & Scan Product</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNewModalOpen(true)}
+                  className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  + File Manual Docket
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/80">
+                    <th className="p-3.5">Complaint ID</th>
+                    <th className="p-3.5">Product & Brand</th>
+                    <th className="p-3.5">Date & Jurisdiction</th>
+                    <th className="p-3.5">Submitted By</th>
+                    <th className="p-3.5">Current Status</th>
+                    <th className="p-3.5">Assigned Authority</th>
+                    <th className="p-3.5">Priority</th>
+                    <th className="p-3.5">Findings</th>
+                    <th className="p-3.5 text-right">Action</th>
                   </tr>
-                ) : (
-                  filteredComplaints.map((c) => {
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredComplaints.map((c) => {
                     const st = STATUS_CONFIG[c.currentStatus] || STATUS_CONFIG.Submitted;
                     return (
                       <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
@@ -473,11 +520,11 @@ export default function ComplaintsPage() {
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
