@@ -21,8 +21,6 @@ const STATUS_COLOR_MAP: Record<
   Closed: { label: 'Case Officially Closed', badge: 'bg-teal-100 text-teal-900 border-teal-300', icon: '🔒' },
 };
 
-const SAMPLE_IDS = ['LM-2026-004281', 'LM-2026-003819', 'LM-2026-002941', 'LM-2026-001205'];
-
 export default function TrackComplaintPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [complaintIdInput, setComplaintIdInput] = useState(searchParams.get('id') || '');
@@ -49,12 +47,6 @@ export default function TrackComplaintPage() {
     if (idToSearch && idToSearch !== searchParams.get('id')) {
       setSearchParams({ id: idToSearch });
     }
-  };
-
-  const handleSelectSample = (sampleId: string) => {
-    setComplaintIdInput(sampleId);
-    setSearchParams({ id: sampleId });
-    handleSearch(sampleId);
   };
 
   return (
@@ -87,7 +79,7 @@ export default function TrackComplaintPage() {
                 <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Enter Complaint ID (e.g. LM-2026-004281)..."
+                  placeholder="Enter Complaint ID (e.g. LM-2026-XXXXXX)..."
                   value={complaintIdInput}
                   onChange={(e) => setComplaintIdInput(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-white text-slate-900 placeholder:text-slate-400 font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -101,21 +93,6 @@ export default function TrackComplaintPage() {
                 Track Status
               </button>
             </form>
-
-            {/* Quick Suggestions */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-3 text-xs">
-              <span className="text-blue-300 text-[11px] font-medium">Try Sample Case IDs:</span>
-              {SAMPLE_IDS.map((sid) => (
-                <button
-                  key={sid}
-                  type="button"
-                  onClick={() => handleSelectSample(sid)}
-                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-blue-200 hover:text-white rounded-lg font-mono text-[11px] border border-white/15 transition-all cursor-pointer"
-                >
-                  {sid}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -131,21 +108,6 @@ export default function TrackComplaintPage() {
             <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
               No statutory complaint was found with ID <span className="font-mono font-bold text-slate-800">"{complaintIdInput}"</span>. Please check the Complaint ID on your acknowledgement receipt and try again.
             </p>
-            <div className="pt-2">
-              <span className="text-[11px] text-slate-400 block mb-2">Or inspect our sample demonstrated cases:</span>
-              <div className="flex flex-wrap justify-center gap-2">
-                {SAMPLE_IDS.map((sid) => (
-                  <button
-                    key={sid}
-                    type="button"
-                    onClick={() => handleSelectSample(sid)}
-                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg text-xs font-mono font-bold border border-blue-200"
-                  >
-                    {sid}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
@@ -246,8 +208,8 @@ export default function TrackComplaintPage() {
                             {step.timestamp && (
                               <span className="text-[10px] text-slate-400 font-mono">
                                 {new Date(step.timestamp).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
+                                   day: '2-digit',
+                                   month: 'short',
                                 })}
                               </span>
                             )}
