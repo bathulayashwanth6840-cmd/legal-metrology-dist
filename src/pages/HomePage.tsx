@@ -356,38 +356,47 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {complaintStats.pendingVerificationList.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white/10 backdrop-blur-xs border border-white/15 p-4 rounded-2xl space-y-2 hover:bg-white/15 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-black text-xs text-amber-300">{c.id}</span>
-                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30">
-                      {c.currentStatus}
-                    </span>
+          {complaintStats.pendingVerificationList.length === 0 ? (
+            <div className="py-6 px-4 text-center text-slate-300 bg-white/5 rounded-2xl border border-white/10">
+              <p className="text-xs font-bold text-amber-200">No Pending Verification Dockets</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Cases flagged during packaged commodity scanning or manual filings will appear here for statutory sign-off.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {complaintStats.pendingVerificationList.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-white/10 backdrop-blur-xs border border-white/15 p-4 rounded-2xl space-y-2 hover:bg-white/15 transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono font-black text-xs text-amber-300">{c.id}</span>
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                        {c.currentStatus}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-xs text-white mt-1 truncate">{c.product.productName}</h4>
+                    <p className="text-[11px] text-blue-200 mt-0.5 line-clamp-2">
+                      {c.findings[0]?.detectedText || c.location}
+                    </p>
                   </div>
-                  <h4 className="font-bold text-xs text-white mt-1 truncate">{c.product.productName}</h4>
-                  <p className="text-[11px] text-blue-200 mt-0.5 line-clamp-2">
-                    {c.findings[0]?.detectedText || c.location}
-                  </p>
-                </div>
 
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-300 font-mono">Ref: {c.inspectionId}</span>
-                  <Link
-                    to={`/complaints/${c.id}`}
-                    className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-[11px] font-black inline-flex items-center gap-1"
-                  >
-                    <span>Verify Docket</span>
-                    <ChevronRight size={12} />
-                  </Link>
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-300 font-mono">Ref: {c.inspectionId}</span>
+                    <Link
+                      to={`/complaints/${c.id}`}
+                      className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-[11px] font-black inline-flex items-center gap-1"
+                    >
+                      <span>Verify Docket</span>
+                      <ChevronRight size={12} />
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── 360° Feature Spotlight Card ─────────────────────────────────── */}
