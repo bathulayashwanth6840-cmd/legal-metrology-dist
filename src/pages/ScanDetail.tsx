@@ -4,8 +4,9 @@ import {
   ArrowLeft, Download, CheckCircle2,
   Info, Sparkles, AlertTriangle, Layers,
   ChevronDown, ChevronUp, AlertCircle, ClipboardCheck,
-  ShieldCheck
+  ShieldCheck, FileWarning, ChevronRight
 } from 'lucide-react';
+import { createComplaintRecord } from '../services/complaintService';
 
 const METROLOGY_FIELDS = [
   { key: 'product_name',        label: 'Product Name',              isCritical: true,  icon: '📦', ruleCode: 'LMR_001' },
@@ -245,8 +246,57 @@ export default function ScanDetail() {
     fetchScan();
   }, [id, apiUrl]);
 
+  const [createdComplaintId, setCreatedComplaintId] = useState<string | null>(null);
+
   const downloadReport = () => {
     window.open(`${apiUrl}/api/scans/${id}/report`, '_blank');
+  };
+
+  const handleCreateComplaint = (prodName: string, failedList: any[], resolvedMap: Record<string, string>) => {
+    const findings = failedList.map((fc) => ({
+      id: `FND-${fc.id}`,
+      fieldKey: fc.id,
+      fieldLabel: fc.label,
+      ruleCode: fc.ruleCode,
+      ruleReference: `Legal Metrology (Packaged Commodities) Rules, 2011 - ${fc.ruleCode}`,
+      detectedText: fc.detected,
+      requiredStandard: fc.required,
+      aiStatus: (fc.status === 'FAIL' ? 'POTENTIAL VIOLATION' : 'NEEDS VERIFICATION') as any,
+      confidence: 0.94,
+      evidenceNotes: fc.reason || 'Flagged during statutory inspection archive review.',
+      reviewedByOfficer: false,
+    }));
+
+    const created = createComplaintRecord({
+      inspectionId: `INS-${id}`,
+      product: {
+        productName: prodName,
+        brand: resolvedMap.brand_name || prodName.split(' ')[0] || 'Packaged Commodity',
+        category: 'Packaged Commodity Sample',
+        manufacturerName: resolvedMap.manufacturer_name,
+        manufacturerAddress: resolvedMap.manufacturer_address,
+        mrp: resolvedMap.mrp,
+        netQuantity: resolvedMap.net_quantity,
+        mfgDate: resolvedMap.mfg_date,
+        expiryDate: resolvedMap.expiry_date,
+        consumerCareDetails: resolvedMap.consumer_care,
+        countryOfOrigin: resolvedMap.country_of_origin || 'India',
+        barcode: scan?.barcode,
+      },
+      inspection: {
+        location: 'Seized Commodity Archive, Enforcement Zone',
+        marketDistrict: 'Enforcement Jurisdiction',
+        inspectorName: 'Inspector Rajesh Sharma',
+        inspectorBadge: 'LM-204',
+        packageImages: scan?.image_path ? [{ side: 'Front Panel', url: scan.image_path }] : [],
+      },
+      findings,
+      priority: failedList.length > 0 ? 'High' : 'Medium',
+      submittedBy: 'Inspector Rajesh Sharma (LM-204)',
+      submitterRole: 'Inspector',
+    });
+
+    setCreatedComplaintId(created.id);
   };
 
   if (loading) return <div className="p-8 text-center text-slate-500 text-xs">Loading inspection details...</div>;
@@ -950,6 +1000,60 @@ export default function ScanDetail() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── 8.5 STATUTORY COMPLAINT ESCALATION ──────────────────────────────── */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-950 text-white rounded-3xl p-6 border border-blue-800 shadow-md space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+              STATUTORY ENFORCEMENT & COMPLAINT WORKFLOW
+            </span>
+            <h3 className="text-base font-black text-white mt-0.5">
+              Escalate Inspection to Formal Complaint / Enquiry
+            </h3>
+            <p className="text-xs text-blue-200 mt-0.5">
+              Generate an official tracking dossier (LM-2026-XXXX) linking this inspection ({scan.id}), its declarations, and evidence.
+            </p>
+          </div>
+
+          {createdComplaintId ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/complaints/${createdComplaintId}`}
+                className="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-lg inline-flex items-center gap-2 transition-all"
+              >
+                <FileWarning size={15} />
+                <span>Open Complaint {createdComplaintId}</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleCreateComplaint(displayProductName, failedChecks, resolvedFields)}
+              className="px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer flex-shrink-0"
+            >
+              <FileWarning size={16} />
+              <span>Create Complaint / Enquiry</span>
+            </button>
+          )}
+        </div>
+
+        {createdComplaintId && (
+          <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-200 text-xs flex items-center justify-between gap-2">
+            <span className="font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={16} className="text-emerald-400" />
+              Statutory Complaint <span className="font-mono text-white">{createdComplaintId}</span> successfully registered and linked!
+            </span>
+            <Link
+              to={`/complaints/${createdComplaintId}`}
+              className="font-bold text-amber-300 hover:underline text-[11px]"
+            >
+              Proceed to Forward / Verification →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ── 9. ACTION BUTTONS ────────────────────────────────────────────────── */}

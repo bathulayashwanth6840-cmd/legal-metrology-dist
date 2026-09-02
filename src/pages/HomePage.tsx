@@ -3,21 +3,25 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   Camera, ShieldCheck, Sparkles, ArrowRight,
-  Video, Eye, RefreshCw
+  Video, Eye, RefreshCw, FileWarning, ChevronRight
 } from 'lucide-react';
+import { getStoredComplaints } from '../services/complaintService';
+import type { ComplaintRecord } from '../types/complaint';
 
 export default function HomePage() {
   const { t } = useLanguage();
   const [scans, setScans] = useState<any[]>([]);
+  const [complaints, setComplaints] = useState<ComplaintRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    fetchScans();
+    fetchScansAndComplaints();
   }, [apiUrl]);
 
-  const fetchScans = () => {
+  const fetchScansAndComplaints = () => {
     setLoading(true);
+    // 1. Fetch live inspections from backend if available
     fetch(`${apiUrl}/api/scans/`)
       .then((res) => res.json())
       .then((data) => {
@@ -27,9 +31,13 @@ export default function HomePage() {
       })
       .catch((err) => console.warn('Failed to fetch dashboard stats:', err))
       .finally(() => setLoading(false));
+
+    // 2. Load stored statutory complaints
+    const complaintList = getStoredComplaints();
+    setComplaints(complaintList);
   };
 
-  // Compute live real metrics from database
+  // Compute live real metrics from scans
   const stats = useMemo(() => {
     const total = scans.length;
     const compliant = scans.filter((s) => s.status === 'compliant').length;
@@ -92,6 +100,37 @@ export default function HomePage() {
     };
   }, [scans]);
 
+  // Compute complaint statistics across the 8 statutory statuses
+  const complaintStats = useMemo(() => {
+    const total = complaints.length;
+    const submitted = complaints.filter((c) => c.currentStatus === 'Submitted').length;
+    const underReview = complaints.filter((c) => c.currentStatus === 'Under Review').length;
+    const furtherEnquiry = complaints.filter((c) => c.currentStatus === 'Further Enquiry').length;
+    const awaitingVerification = complaints.filter((c) => c.currentStatus === 'Awaiting Verification').length;
+    const verifiedViolation = complaints.filter((c) => c.currentStatus === 'Verified Violation').length;
+    const notVerified = complaints.filter((c) => c.currentStatus === 'Not Verified').length;
+    const actionTaken = complaints.filter((c) => c.currentStatus === 'Action Taken').length;
+    const closed = complaints.filter((c) => c.currentStatus === 'Closed').length;
+
+    // Cases requiring urgent officer attention
+    const pendingVerificationList = complaints.filter(
+      (c) => c.currentStatus === 'Awaiting Verification' || c.currentStatus === 'Further Enquiry' || c.currentStatus === 'Under Review'
+    ).slice(0, 3);
+
+    return {
+      total,
+      submitted,
+      underReview,
+      furtherEnquiry,
+      awaitingVerification,
+      verifiedViolation,
+      notVerified,
+      actionTaken,
+      closed,
+      pendingVerificationList,
+    };
+  }, [complaints]);
+
   const recentScans = scans.slice(0, 5);
 
   return (
@@ -125,16 +164,16 @@ export default function HomePage() {
               </Link>
 
               <Link
-                to="/scan?mode=video360"
+                to="/complaints"
                 className="px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98]"
               >
-                <Video size={16} />
-                <span>360° Video Scan</span>
+                <FileWarning size={16} />
+                <span>Complaints & Enquiries</span>
               </Link>
 
               <button
                 type="button"
-                onClick={fetchScans}
+                onClick={fetchScansAndComplaints}
                 className="p-3.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl border border-white/20 transition-all cursor-pointer"
                 title="Refresh Live Metrics"
               >
@@ -189,6 +228,167 @@ export default function HomePage() {
 
       {/* ── Main Content Body ────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-4 space-y-6 w-full">
+
+        {/* ── NEW EXTENSION: COMPLAINT & ENQUIRY OVERVIEW ──────────────────── */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 text-[10px] font-black rounded-full uppercase">
+                  Statutory Enforcement Cell
+                </span>
+                <span className="text-xs text-slate-500 font-bold">LMR Rules 2011 Active Dockets</span>
+              </div>
+              <h3 className="font-black text-slate-900 text-xl mt-1">
+                Complaint & Enquiry Overview
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Real-time breakdown of all statutory enquiries across the 8 administrative and verification stages.
+              </p>
+            </div>
+
+            <Link
+              to="/complaints"
+              className="px-5 py-2.5 bg-[var(--color-navy)] hover:bg-blue-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+            >
+              <span>View All Complaints ({complaintStats.total})</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          {/* 8 Status Counter Cards Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <Link
+              to="/complaints?status=Submitted"
+              className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 hover:bg-blue-100/80 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-blue-800 block">1. Submitted</span>
+              <span className="text-2xl font-black text-blue-950 mt-1 block">{complaintStats.submitted}</span>
+              <span className="text-[9px] text-blue-600 font-medium">New filings</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Under Review"
+              className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 hover:bg-indigo-100/80 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-indigo-800 block">2. Review</span>
+              <span className="text-2xl font-black text-indigo-950 mt-1 block">{complaintStats.underReview}</span>
+              <span className="text-[9px] text-indigo-600 font-medium">AI analysis</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Further Enquiry"
+              className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 hover:bg-amber-100 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-amber-900 block">3. Enquiry</span>
+              <span className="text-2xl font-black text-amber-950 mt-1 block">{complaintStats.furtherEnquiry}</span>
+              <span className="text-[9px] text-amber-700 font-medium">Zonal audit</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Awaiting Verification"
+              className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200 hover:bg-purple-100/80 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-purple-800 block">4. Awaiting</span>
+              <span className="text-2xl font-black text-purple-950 mt-1 block">{complaintStats.awaitingVerification}</span>
+              <span className="text-[9px] text-purple-600 font-medium">Senior review</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Verified Violation"
+              className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-300 hover:bg-rose-100 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-rose-900 block">5. Verified</span>
+              <span className="text-2xl font-black text-rose-950 mt-1 block">{complaintStats.verifiedViolation}</span>
+              <span className="text-[9px] text-rose-700 font-medium">Confirmed breach</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Not Verified"
+              className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 hover:bg-slate-200/80 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-slate-700 block">6. Dismissed</span>
+              <span className="text-2xl font-black text-slate-900 mt-1 block">{complaintStats.notVerified}</span>
+              <span className="text-[9px] text-slate-500 font-medium">Compliant</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Action Taken"
+              className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-emerald-900 block">7. Action</span>
+              <span className="text-2xl font-black text-emerald-950 mt-1 block">{complaintStats.actionTaken}</span>
+              <span className="text-[9px] text-emerald-700 font-medium">Fine/Remedy</span>
+            </Link>
+
+            <Link
+              to="/complaints?status=Closed"
+              className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200 hover:bg-teal-100/80 transition-colors"
+            >
+              <span className="text-[10px] uppercase font-bold text-teal-800 block">8. Closed</span>
+              <span className="text-2xl font-black text-teal-950 mt-1 block">{complaintStats.closed}</span>
+              <span className="text-[9px] text-teal-600 font-medium">Final docket</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* ── NEW EXTENSION: PENDING OFFICIAL VERIFICATION QUEUE ───────────── */}
+        <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-blue-950 rounded-3xl p-6 text-white shadow-md border border-amber-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-amber-400 text-slate-950 text-[10px] font-black rounded-md uppercase">
+                  Senior Authority Queue
+                </span>
+                <span className="text-xs text-amber-200 font-bold">Requires Authorized Official Sign-off</span>
+              </div>
+              <h3 className="text-lg font-black text-white mt-1">
+                Pending Official Verification & Forwarded Cases
+              </h3>
+            </div>
+
+            <Link
+              to="/complaints?status=Awaiting Verification"
+              className="text-xs font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 self-start sm:self-auto"
+            >
+              <span>View Verification Queue</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {complaintStats.pendingVerificationList.map((c) => (
+              <div
+                key={c.id}
+                className="bg-white/10 backdrop-blur-xs border border-white/15 p-4 rounded-2xl space-y-2 hover:bg-white/15 transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-black text-xs text-amber-300">{c.id}</span>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30">
+                      {c.currentStatus}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-xs text-white mt-1 truncate">{c.product.productName}</h4>
+                  <p className="text-[11px] text-blue-200 mt-0.5 line-clamp-2">
+                    {c.findings[0]?.detectedText || c.location}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-300 font-mono">Ref: {c.inspectionId}</span>
+                  <Link
+                    to={`/complaints/${c.id}`}
+                    className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-[11px] font-black inline-flex items-center gap-1"
+                  >
+                    <span>Verify Docket</span>
+                    <ChevronRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* ── 360° Feature Spotlight Card ─────────────────────────────────── */}
         <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 text-white shadow-md border border-blue-800 flex flex-col md:flex-row md:items-center justify-between gap-6">

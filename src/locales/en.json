@@ -3,6 +3,8 @@
     "home": "Dashboard",
     "scan": "New Inspection",
     "video360": "360° Scan",
+    "complaints": "Complaints & Enquiries",
+    "track": "Track Complaint",
     "history": "Inspection History",
     "reports": "Reports",
     "analytics": "Compliance Analytics",
@@ -10,8 +12,8 @@
     "profile": "Settings & Profile"
   },
   "home": {
-    "title": "Enforcement Officer Portal",
-    "subtitle": "Scan packaged commodities to instantly check compliance with the Legal Metrology (Packaged Commodities) Rules, 2011.",
+    "title": "Enforcement Officer Inspection Dashboard",
+    "subtitle": "Autonomous AI inspection suite for verifying packaged commodity declarations under the Legal Metrology (Packaged Commodities) Rules, 2011.",
     "step1_title": "1. Scan Label",
     "step1_desc": "Capture clear images of up to 4 packaging sides.",
     "step2_title": "2. AI Extraction",
@@ -24,7 +26,9 @@
     "rules_act": "Rules & Act",
     "rules_act_desc": "Legal Metrology rules database",
     "history_link": "Scan History",
-    "history_desc": "View previous scan inspections"
+    "history_desc": "View previous scan inspections",
+    "complaints_overview": "Complaint & Enquiry Overview",
+    "pending_verification": "Pending Official Verification"
   },
   "scan": {
     "title": "4-Side Product Packaging Compliance Scanner",
@@ -61,7 +65,24 @@
     "download_report": "Download PDF Report",
     "offline_mode_title": "Offline Mode Active",
     "offline_mode_desc": "You are currently offline. Your scan has been saved locally and will automatically synchronize when internet returns.",
-    "syncing": "Synchronizing pending offline scans..."
+    "syncing": "Synchronizing pending offline scans...",
+    "create_complaint": "Create Complaint / Enquiry",
+    "potential_violation": "POTENTIAL VIOLATION",
+    "needs_verification": "NEEDS VERIFICATION",
+    "pass": "PASS"
+  },
+  "complaints": {
+    "title": "Legal Metrology Complaints & Enquiries",
+    "subtitle": "Case management, statutory enquiries, zonal authority assignments, and official verification dockets.",
+    "new_complaint": "New Complaint",
+    "all_cases": "All Cases",
+    "search_placeholder": "Search by Complaint ID, Product Name, or Location...",
+    "forward_btn": "Forward for Further Enquiry",
+    "verify_btn": "Verify Finding",
+    "mark_unverified_btn": "Mark Not Verified",
+    "request_info_btn": "Request More Information",
+    "track_title": "Citizen Complaint & Enquiry Tracker",
+    "track_subtitle": "Track real-time statutory investigation and resolution status for your Legal Metrology complaint."
   },
   "progress": {
     "title": "Analyzing Product Packaging",
