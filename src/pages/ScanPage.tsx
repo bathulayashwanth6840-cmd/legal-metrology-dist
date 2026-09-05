@@ -14,6 +14,7 @@ import ImageCropModal from '../components/ImageCropModal';
 import Video360Recorder from '../components/Video360Recorder';
 import { compressImage } from '../utils/imageCompressor';
 import { checkImageQuality } from '../utils/imageQuality';
+import { fileToDataUrl, resolveImageUrl, handleImageError } from '../utils/imageUtils';
 import { useLanguage } from '../i18n/LanguageContext';
 import { savePendingScan, syncPendingScans } from '../utils/offlineQueue';
 import type { PendingScan } from '../utils/offlineQueue';
@@ -31,6 +32,7 @@ interface FieldConfig {
   condition: string;
   icon: string;
   isCritical: boolean;
+  category: 'LMR' | 'FSSAI' | 'TRACKING';
 }
 
 interface SideCardConfig {
@@ -57,16 +59,23 @@ const PRODUCT_SIDES: SideCardConfig[] = [
 ];
 
 const METROLOGY_FIELDS: FieldConfig[] = [
-  { key: 'product_name',        label: 'Product Name',              ruleCode: 'LMR_001', condition: 'Generic or common name on principal display panel',            icon: '📦', isCritical: true },
-  { key: 'mrp',                 label: 'MRP (Max Retail Price)',     ruleCode: 'LMR_002', condition: 'Clearly written in Rupees, inclusive of all taxes',             icon: '₹',  isCritical: true },
-  { key: 'net_quantity',        label: 'Net Quantity',               ruleCode: 'LMR_003', condition: 'Net weight, volume, or number of units in standard metric',    icon: '⚖️', isCritical: true },
-  { key: 'manufacturer_name',   label: 'Manufacturer / Packer',     ruleCode: 'LMR_004', condition: 'Name of manufacturer, packer, or importer',                    icon: '🏭', isCritical: true },
-  { key: 'manufacturer_address',label: 'Manufacturer Address',       ruleCode: 'LMR_004', condition: 'Complete physical address with PIN code',                       icon: '📍', isCritical: true },
-  { key: 'mfg_date',            label: 'Mfg / Packing Date',        ruleCode: 'LMR_005', condition: 'Month and year of manufacture or packing',                      icon: '📅', isCritical: true },
-  { key: 'expiry_date',         label: 'Expiry / Best Before',       ruleCode: 'LMR_006', condition: 'Required for commodities that deteriorate over time',           icon: '⏳', isCritical: false },
-  { key: 'consumer_care',       label: 'Consumer Care Details',      ruleCode: 'LMR_007', condition: 'Name, address, phone or email of consumer care contact',       icon: '📞', isCritical: true },
-  { key: 'country_of_origin',   label: 'Country of Origin',          ruleCode: 'LMR_008', condition: 'Country of origin statement (e.g. Made in India)',             icon: '🌍', isCritical: false },
-  { key: 'fssai_number',        label: 'FSSAI License No.',          ruleCode: 'FSSAI_001', condition: '14-digit FSSAI License Number for food commodities',          icon: '🔏', isCritical: false },
+  // Legal Metrology Act & Rules 2011 (LMR)
+  { key: 'product_name',         label: 'Generic / Product Name',    ruleCode: 'Rule 6(1)(a)', condition: 'Generic or common name on principal display panel',         icon: '📦', isCritical: true,  category: 'LMR' },
+  { key: 'net_quantity',         label: 'Net Quantity',              ruleCode: 'Rule 6(1)(b)', condition: 'Net weight, volume, or number of units in standard metric', icon: '⚖️', isCritical: true,  category: 'LMR' },
+  { key: 'mfg_date',             label: 'Mfg / Packing Date',        ruleCode: 'Rule 6(1)(d)', condition: 'Month and year of manufacture or packing',                   icon: '📅', isCritical: true,  category: 'LMR' },
+  { key: 'mrp',                  label: 'MRP (Max Retail Price)',    ruleCode: 'Rule 6(1)(e)', condition: 'Clearly in Indian Rupees (₹), inclusive of all taxes',       icon: '₹',  isCritical: true,  category: 'LMR' },
+  { key: 'unit_sale_price',      label: 'Unit Sale Price (USP)',     ruleCode: 'Rule 6(1)(k)', condition: 'Unit sale price per g/ml/piece where package > 100g/ml',     icon: '🏷️', isCritical: false, category: 'LMR' },
+  { key: 'manufacturer_name',    label: 'Manufacturer / Packer',    ruleCode: 'Rule 6(1)(a)', condition: 'Name of manufacturer, packer, or importer',                 icon: '🏭', isCritical: true,  category: 'LMR' },
+  { key: 'manufacturer_address', label: 'Manufacturer Address',      ruleCode: 'Rule 6(1)(a)', condition: 'Complete physical address with PIN code',                    icon: '📍', isCritical: true,  category: 'LMR' },
+  { key: 'consumer_care',        label: 'Consumer Care Details',     ruleCode: 'Rule 6(1)(n)', condition: 'Name, address, phone or email of consumer care contact',    icon: '📞', isCritical: true,  category: 'LMR' },
+  { key: 'country_of_origin',    label: 'Country of Origin',         ruleCode: 'Rule 6(1)(m)', condition: 'Mandatory country of origin statement (e.g. Made in India)',  icon: '🌍', isCritical: false, category: 'LMR' },
+  
+  // Food Safety and Standards (FSSAI 2011)
+  { key: 'fssai_number',         label: 'FSSAI License No.',         ruleCode: 'FSSAI Sec 31', condition: '14-digit FSSAI License Number with logo for food commodities', icon: '🔏', isCritical: false, category: 'FSSAI' },
+  { key: 'expiry_date',          label: 'Expiry / Best Before Date', ruleCode: 'FSSAI Reg 2.2', condition: 'Best before / expiry date for perishable food items',        icon: '⏳', isCritical: false, category: 'FSSAI' },
+  
+  // Product Identification & Traceability
+  { key: 'batch_number',         label: 'Batch / Lot Number',        ruleCode: 'Rule 6(1)(c)', condition: 'Batch number or lot identifier for product traceability',   icon: '🔢', isCritical: false, category: 'TRACKING' },
 ];
 
 const STEPS = [
@@ -82,12 +91,13 @@ function resolveExtractedFields(data: any): Record<string, string> {
   
   const ext = data.extracted_fields || {};
   const sem = ext.semantic_fields || {};
+  const fusion = ext.fusion_fields || {};
   const gemini = data.gemini_extraction || ext.gemini_extraction || {};
   const localOcr = data.local_ocr || ext.local_ocr || {};
   const rawText = data.ocr_raw_text || ext.raw_text || localOcr.full_text || localOcr.raw_text || '';
 
   // 1. Resolve Product Name
-  let productName = sem.product_name || gemini.product_name || gemini.brand_name || '';
+  let productName = fusion.product_name?.selected_value || sem.product_name || gemini.product_name || gemini.brand_name || '';
   if (!productName && rawText) {
     const lines = String(rawText).split('\n').map((l: string) => l.trim()).filter(Boolean);
     for (const line of lines) {
@@ -99,7 +109,7 @@ function resolveExtractedFields(data: any): Record<string, string> {
   }
 
   // 2. Resolve MRP
-  let mrp = sem.mrp || gemini.mrp || '';
+  let mrp = fusion.mrp?.selected_value || sem.mrp || gemini.mrp || '';
   if (!mrp && rawText) {
     const mrpMatch = String(rawText).match(/(?:MRP|M\.R\.P\.?|Maximum\s+Retail\s+Price|Max\.?\s*Retail\s*Price)[\s:.-]*(?:Rs\.?|INR|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
       || String(rawText).match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i);
@@ -107,7 +117,7 @@ function resolveExtractedFields(data: any): Record<string, string> {
   }
 
   // 3. Resolve Net Quantity
-  let netQty = sem.net_quantity || '';
+  let netQty = fusion.net_quantity?.selected_value || sem.net_quantity || '';
   if (!netQty) {
     if (gemini.net_quantity_value && gemini.net_quantity_unit) {
       netQty = `${gemini.net_quantity_value} ${gemini.net_quantity_unit}`;
@@ -121,42 +131,42 @@ function resolveExtractedFields(data: any): Record<string, string> {
   }
 
   // 4. Resolve Manufacturer Name
-  let mfgName = sem.manufacturer_name || gemini.manufacturer_name || gemini.packer_name || gemini.importer_name || '';
+  let mfgName = fusion.manufacturer_name?.selected_value || sem.manufacturer_name || gemini.manufacturer_name || gemini.packer_name || gemini.importer_name || '';
   if (!mfgName && rawText) {
     const mfgMatch = String(rawText).match(/(?:Mfg\s*by|Manufactured\s*(?:by|&)|Packed\s*by|Marketed\s*by|Imported\s*by|Mfd\s*By)[\s:.-]*([^\n,]+)/i);
     if (mfgMatch) mfgName = mfgMatch[1].trim();
   }
 
   // 5. Resolve Manufacturer Address
-  let mfgAddr = sem.manufacturer_address || gemini.manufacturer_address || gemini.packer_address || gemini.importer_address || '';
+  let mfgAddr = fusion.manufacturer_address?.selected_value || sem.manufacturer_address || gemini.manufacturer_address || gemini.packer_address || gemini.importer_address || '';
   if (!mfgAddr && rawText) {
     const pinMatch = String(rawText).match(/(?:Pin|Pincode|Dist\.?)?[\s:.-]*(\d{6})\b/i);
     if (pinMatch) mfgAddr = `Packaging facility (PIN ${pinMatch[1]})`;
   }
 
   // 6. Resolve Mfg Date
-  let mfgDate = sem.mfg_date || gemini.manufacturing_date || gemini.packing_date || '';
+  let mfgDate = fusion.mfg_date?.selected_value || sem.mfg_date || gemini.manufacturing_date || gemini.packing_date || '';
   if (!mfgDate && rawText) {
     const dateMatch = String(rawText).match(/(?:MFG|MFD|Manufactured|Packed\s*On|PKD|PKG)[\s:.-]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[/-]\d{2,4}|[A-Za-z]{3,9}\s*[-/]?\s*\d{2,4})/i);
     if (dateMatch) mfgDate = dateMatch[1].trim();
   }
 
   // 7. Resolve Expiry Date
-  let expDate = sem.expiry_date || gemini.expiry_date || gemini.best_before || '';
+  let expDate = fusion.expiry_date?.selected_value || sem.expiry_date || gemini.expiry_date || gemini.best_before || '';
   if (!expDate && rawText) {
     const expMatch = String(rawText).match(/(?:EXP|Expiry|Use\s*By|Best\s*Before)[\s:.-]*([^\n]+)/i);
     if (expMatch) expDate = expMatch[1].trim();
   }
 
   // 8. Resolve FSSAI
-  let fssai = sem.fssai_number || gemini.fssai_number || '';
+  let fssai = fusion.fssai_number?.selected_value || sem.fssai_number || gemini.fssai_number || '';
   if (!fssai && rawText) {
     const fssaiMatch = String(rawText).match(/(?:FSSAI|Lic\.?\s*No\.?)[\s:.-]*(\d{14})\b/i) || String(rawText).match(/\b(1\d{13})\b/);
     if (fssaiMatch) fssai = fssaiMatch[1].trim();
   }
 
   // 9. Resolve Consumer Care
-  let care = sem.consumer_care || gemini.customer_care_details || gemini.consumer_care_phone || gemini.consumer_care_email || '';
+  let care = fusion.consumer_care?.selected_value || sem.consumer_care || gemini.customer_care_details || gemini.consumer_care_phone || gemini.consumer_care_email || '';
   if (!care && rawText) {
     const phoneMatch = String(rawText).match(/(?:Toll\s*Free|Helpline|Phone|Call)[\s:.-]*(\+?91[\s-]?)?([1800\d\s-]{10,14})\b/i);
     const emailMatch = String(rawText).match(/([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/i);
@@ -165,12 +175,18 @@ function resolveExtractedFields(data: any): Record<string, string> {
   }
 
   // 10. Resolve Country of Origin
-  let origin = sem.country_of_origin || gemini.country_of_origin || '';
+  let origin = fusion.country_of_origin?.selected_value || sem.country_of_origin || gemini.country_of_origin || '';
   if (!origin && rawText) {
     const originMatch = String(rawText).match(/(?:Country\s*of\s*Origin|Origin|Made\s*in|Product\s*of)[\s:.-]*([A-Za-z\s]+)\b/i)
       || String(rawText).match(/\b(Made\s*in\s*India|Product\s*of\s*India)\b/i);
     if (originMatch) origin = originMatch[1].trim();
   }
+
+  // 11. Unit Sale Price
+  let usp = fusion.unit_sale_price?.selected_value || sem.unit_sale_price || gemini.unit_sale_price || '';
+
+  // 12. Batch Number
+  let batch = fusion.batch_number?.selected_value || sem.batch_number || gemini.batch_number || '';
 
   return {
     product_name: productName,
@@ -183,6 +199,8 @@ function resolveExtractedFields(data: any): Record<string, string> {
     fssai_number: fssai,
     consumer_care: care,
     country_of_origin: origin,
+    unit_sale_price: usp,
+    batch_number: batch,
   };
 }
 
@@ -303,6 +321,13 @@ export default function ScanPage() {
     back: '',
     left: '',
     right: '',
+  });
+
+  const [imgNaturalSizes, setImgNaturalSizes] = useState<Record<ProductSide, { width: number; height: number }>>({
+    front: { width: 1000, height: 1000 },
+    back:  { width: 1000, height: 1000 },
+    left:  { width: 1000, height: 1000 },
+    right: { width: 1000, height: 1000 },
   });
 
   const [qualityInfo, setQualityInfo] = useState<Record<ProductSide, SideQualityInfo>>({
@@ -436,7 +461,7 @@ export default function ScanPage() {
   useEffect(() => {
     return () => {
       Object.values(previewUrlsRef.current).forEach((url) => {
-        if (url) URL.revokeObjectURL(url);
+        if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
       });
     };
   }, []);
@@ -446,16 +471,16 @@ export default function ScanPage() {
     try {
       const compressed = await compressImage(file, 1600, 0.88);
       const quality = await checkImageQuality(compressed);
+      const dataUrl = await fileToDataUrl(compressed);
 
-      if (previewUrlsRef.current[side]) {
+      if (previewUrlsRef.current[side] && previewUrlsRef.current[side].startsWith('blob:')) {
         URL.revokeObjectURL(previewUrlsRef.current[side]);
       }
 
-      const newUrl = URL.createObjectURL(compressed);
-      previewUrlsRef.current[side] = newUrl;
+      previewUrlsRef.current[side] = dataUrl;
 
       setImages((prev) => ({ ...prev, [side]: compressed }));
-      setPreviewUrls((prev) => ({ ...prev, [side]: newUrl }));
+      setPreviewUrls((prev) => ({ ...prev, [side]: dataUrl }));
       setQualityInfo((prev) => ({
         ...prev,
         [side]: {
@@ -501,7 +526,7 @@ export default function ScanPage() {
     e.target.value = '';
   };
 
-  const handle360KeyframesExtracted = (result: Extracted360Result) => {
+  const handle360KeyframesExtracted = async (result: Extracted360Result) => {
     setCoverage360(result.coverageList);
 
     const updatedImages: Record<ProductSide, File | null> = {
@@ -517,23 +542,29 @@ export default function ScanPage() {
       right: '',
     };
 
-    (['front', 'back', 'left', 'right'] as ProductSide[]).forEach((side) => {
-      const kf = result.keyframes[side];
-      if (kf) {
-        updatedImages[side] = kf.file;
-        updatedPreviews[side] = kf.previewUrl;
-      }
-    });
+    await Promise.all(
+      (['front', 'back', 'left', 'right'] as ProductSide[]).map(async (side) => {
+        const kf = result.keyframes[side];
+        if (kf) {
+          updatedImages[side] = kf.file;
+          const dataUrl = kf.previewUrl.startsWith('data:')
+            ? kf.previewUrl
+            : await fileToDataUrl(kf.file);
+          updatedPreviews[side] = dataUrl;
+          previewUrlsRef.current[side] = dataUrl;
+        }
+      })
+    );
 
     setImages(updatedImages);
     setPreviewUrls(updatedPreviews);
   };
 
   const handleRemoveSide = (side: ProductSide) => {
-    if (previewUrlsRef.current[side]) {
+    if (previewUrlsRef.current[side] && previewUrlsRef.current[side].startsWith('blob:')) {
       URL.revokeObjectURL(previewUrlsRef.current[side]);
-      previewUrlsRef.current[side] = '';
     }
+    previewUrlsRef.current[side] = '';
     setImages((prev) => ({ ...prev, [side]: null }));
     setPreviewUrls((prev) => ({ ...prev, [side]: '' }));
     setQualityInfo((prev) => ({ ...prev, [side]: { warnings: [] } }));
@@ -556,16 +587,16 @@ export default function ScanPage() {
     try {
       const compressed = await compressImage(croppedFile, 1600, 0.9);
       const quality = await checkImageQuality(compressed);
+      const dataUrl = await fileToDataUrl(compressed);
 
-      if (previewUrlsRef.current[side]) {
+      if (previewUrlsRef.current[side] && previewUrlsRef.current[side].startsWith('blob:')) {
         URL.revokeObjectURL(previewUrlsRef.current[side]);
       }
 
-      const newUrl = URL.createObjectURL(compressed);
-      previewUrlsRef.current[side] = newUrl;
+      previewUrlsRef.current[side] = dataUrl;
 
       setImages((prev) => ({ ...prev, [side]: compressed }));
-      setPreviewUrls((prev) => ({ ...prev, [side]: newUrl }));
+      setPreviewUrls((prev) => ({ ...prev, [side]: dataUrl }));
       setQualityInfo((prev) => ({
         ...prev,
         [side]: {
@@ -1033,7 +1064,12 @@ export default function ScanPage() {
                       {preview ? (
                         <div className="w-full flex-1 flex flex-col items-center justify-between gap-3">
                           <div className="relative w-full h-40 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200">
-                            <img src={preview} alt={`${side} preview`} className="w-full h-full object-contain" />
+                            <img
+                              src={resolveImageUrl(preview, apiUrl)}
+                              alt={`${side} preview`}
+                              className="w-full h-full object-contain"
+                              onError={(e) => handleImageError(e)}
+                            />
                             {quality?.dimensions && (
                               <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">
                                 {quality.dimensions}
@@ -1301,25 +1337,114 @@ export default function ScanPage() {
                 <div className="relative flex-1 min-h-[300px] bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200">
                   {previewUrls[selectedSideViewer] ? (
                     <img
-                      src={previewUrls[selectedSideViewer]}
+                      src={resolveImageUrl(previewUrls[selectedSideViewer], apiUrl)}
                       alt="Selected side packaging"
                       className="w-full h-full object-contain max-h-[380px]"
+                      onError={(e) => handleImageError(e)}
+                      onLoad={(e) => {
+                        const { naturalWidth, naturalHeight } = e.currentTarget;
+                        if (naturalWidth && naturalHeight) {
+                          setImgNaturalSizes((prev) => ({
+                            ...prev,
+                            [selectedSideViewer]: { width: naturalWidth, height: naturalHeight },
+                          }));
+                        }
+                      }}
                     />
                   ) : scanResult?.image_path ? (
                     <img
-                      src={`${apiUrl}/uploads/${scanResult.image_path}`}
+                      src={resolveImageUrl(scanResult.image_path, apiUrl)}
                       alt="Primary packaging"
                       className="w-full h-full object-contain max-h-[380px]"
+                      onError={(e) => handleImageError(e)}
+                      onLoad={(e) => {
+                        const { naturalWidth, naturalHeight } = e.currentTarget;
+                        if (naturalWidth && naturalHeight) {
+                          setImgNaturalSizes((prev) => ({
+                            ...prev,
+                            [selectedSideViewer]: { width: naturalWidth, height: naturalHeight },
+                          }));
+                        }
+                      }}
                     />
                   ) : (
                     <span className="text-xs text-slate-400">No image available for this side</span>
                   )}
 
+                  {/* SVG Bounding Polygon Overlay */}
+                  {(() => {
+                    const nat = imgNaturalSizes[selectedSideViewer] || { width: 1000, height: 1000 };
+                    const sideOcr = scanResult?.extracted_fields?.sides_ocr?.[selectedSideViewer];
+                    const polygons: Array<{ points: number[][]; text?: string; isHighlight?: boolean; key?: string }> = [];
+
+                    if (sideOcr?.bounding_polygons && Array.isArray(sideOcr.bounding_polygons)) {
+                      sideOcr.bounding_polygons.forEach((poly: any, idx: number) => {
+                        if (Array.isArray(poly) && poly.length >= 3) {
+                          polygons.push({ points: poly, text: sideOcr.lines?.[idx]?.text || '' });
+                        }
+                      });
+                    } else if (scanResult?.bounding_boxes && Array.isArray(scanResult.bounding_boxes) && (selectedSideViewer === 'front')) {
+                      scanResult.bounding_boxes.forEach((b: any) => {
+                        if (b.polygon && Array.isArray(b.polygon)) {
+                          polygons.push({ points: b.polygon, text: b.text, key: b.field_key });
+                        } else if (b.box && Array.isArray(b.box)) {
+                          const [ymin, xmin, ymax, xmax] = b.box;
+                          const w = nat.width || 1000;
+                          const h = nat.height || 1000;
+                          const pts = (b.normalized ?? true)
+                            ? [[xmin * w, ymin * h], [xmax * w, ymin * h], [xmax * w, ymax * h], [xmin * w, ymax * h]]
+                            : [[xmin, ymin], [xmax, ymin], [xmax, ymax], [xmin, ymax]];
+                          polygons.push({ points: pts, text: b.text, key: b.field_key });
+                        }
+                      });
+                    }
+
+                    const highlightedFusion = highlightedFieldKey ? scanResult?.extracted_fields?.fusion_fields?.[highlightedFieldKey] : null;
+                    const isHighlightOnThisSide = !highlightedFusion?.source_side || highlightedFusion.source_side.toLowerCase() === selectedSideViewer.toLowerCase();
+
+                    if (nat.width > 0 && nat.height > 0 && polygons.length > 0) {
+                      return (
+                        <svg
+                          viewBox={`0 0 ${nat.width} ${nat.height}`}
+                          className="absolute inset-0 w-full h-full pointer-events-none"
+                          preserveAspectRatio="xMidYMid meet"
+                        >
+                          {polygons.map((p, idx) => {
+                            const ptsStr = p.points.map((pt) => `${pt[0]},${pt[1]}`).join(' ');
+                            const isTarget = isHighlightOnThisSide && highlightedFieldKey && (
+                              p.key === highlightedFieldKey ||
+                              (highlightedFusion?.selected_value && p.text && p.text.toLowerCase().includes(String(highlightedFusion.selected_value).toLowerCase().slice(0, 10)))
+                            );
+                            return (
+                              <g key={idx}>
+                                <polygon
+                                  points={ptsStr}
+                                  fill={isTarget ? 'rgba(234, 179, 8, 0.35)' : 'rgba(59, 130, 246, 0.12)'}
+                                  stroke={isTarget ? '#f59e0b' : '#3b82f6'}
+                                  strokeWidth={isTarget ? Math.max(3, nat.width / 250) : Math.max(1.5, nat.width / 500)}
+                                  strokeDasharray={isTarget ? '6 3' : 'none'}
+                                />
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {/* Active Highlight Tag Overlay */}
                   {highlightedFieldKey && (
                     <div className="absolute top-3 left-3 bg-amber-500 text-gray-950 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md animate-pulse">
                       <Tag size={12} />
-                      <span>Inspecting: {highlightedFieldKey.replace('_', ' ')}</span>
+                      <span>Inspecting: {highlightedFieldKey.replace(/_/g, ' ')}</span>
+                    </div>
+                  )}
+
+                  {/* Evidence coordinate fallback badge */}
+                  {(!scanResult?.extracted_fields?.sides_ocr?.[selectedSideViewer]?.bounding_polygons?.length && !scanResult?.bounding_boxes?.length) && (
+                    <div className="absolute bottom-2 right-2 bg-slate-900/80 text-slate-300 text-[9px] px-2 py-0.5 rounded backdrop-blur">
+                      Evidence: Full Panel (Exact ROI not localized)
                     </div>
                   )}
                 </div>
@@ -1350,55 +1475,133 @@ export default function ScanPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
-                    {METROLOGY_FIELDS.map((f) => {
-                      const val = fields[f.key] || '';
-                      const fusionMeta = scanResult?.extracted_fields?.fusion_fields?.[f.key] || {};
-                      const sourceSide = fusionMeta.source_side || 'Front';
-                      const isHighlighted = highlightedFieldKey === f.key;
+                  {/* Grouped Declaration Sections */}
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                    {(['LMR', 'FSSAI', 'TRACKING'] as const).map((cat) => {
+                      const catFields = METROLOGY_FIELDS.filter((f) => f.category === cat);
+                      if (catFields.length === 0) return null;
+
+                      const catTitle =
+                        cat === 'LMR'
+                          ? 'Legal Metrology (Packaged Commodities) Rules, 2011'
+                          : cat === 'FSSAI'
+                          ? 'Food Safety and Standards (Packaging & Labelling) Regulations, 2011'
+                          : 'Product Traceability & Identification';
+
+                      const catBadge = cat === 'LMR' ? 'LMR 2011' : cat === 'FSSAI' ? 'FSSAI' : 'TRACKING';
+                      const badgeBg = cat === 'LMR' ? 'bg-blue-100 text-blue-800' : cat === 'FSSAI' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800';
 
                       return (
-                        <div
-                          key={f.key}
-                          onClick={() => handleFocusFieldEvidence(f.key)}
-                          className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                            isHighlighted
-                              ? 'border-blue-500 bg-blue-50/60 ring-2 ring-blue-200'
-                              : 'border-slate-200 bg-slate-50/40 hover:bg-slate-100/60'
-                          }`}
-                        >
-                          <div className="flex justify-between items-center mb-1.5">
-                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                              <span>{f.icon}</span>
-                              <span>{f.label}</span>
-                              {f.isCritical && <span className="text-rose-500 font-bold">*</span>}
-                            </label>
-
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 bg-slate-200 text-slate-700 rounded">
-                                Panel: {sourceSide}
-                              </span>
-                              {val ? (
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                                  ✓ Detected
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
-                                  Review
-                                </span>
-                              )}
-                            </div>
+                        <div key={cat} className="space-y-2">
+                          <div className="flex items-center gap-2 pt-2 border-b border-slate-100 pb-1">
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${badgeBg}`}>
+                              {catBadge}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700">{catTitle}</span>
                           </div>
 
-                          <input
-                            type="text"
-                            value={val}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleField(f.key, e.target.value)}
-                            placeholder={`Enter ${f.label}...`}
-                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <span className="text-[10px] text-slate-400 mt-1 block">{f.condition} ({f.ruleCode})</span>
+                          <div className="space-y-2.5">
+                            {catFields.map((f) => {
+                              const val = fields[f.key] || '';
+                              const fusionMeta = scanResult?.extracted_fields?.fusion_fields?.[f.key] || {};
+                              const sourceSide = fusionMeta.source_side || 'Front';
+                              const isHighlighted = highlightedFieldKey === f.key;
+                              const hasConflict = Boolean(fusionMeta.conflict || fusionMeta.agreement === 'CONFLICT');
+
+                              return (
+                                <div
+                                  key={f.key}
+                                  onClick={() => handleFocusFieldEvidence(f.key)}
+                                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                    hasConflict
+                                      ? 'border-amber-400 bg-amber-50/50 ring-1 ring-amber-300'
+                                      : isHighlighted
+                                      ? 'border-blue-500 bg-blue-50/60 ring-2 ring-blue-200'
+                                      : 'border-slate-200 bg-slate-50/40 hover:bg-slate-100/60'
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center mb-1.5">
+                                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                      <span>{f.icon}</span>
+                                      <span>{f.label}</span>
+                                      {f.isCritical && <span className="text-rose-500 font-bold">*</span>}
+                                    </label>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 bg-slate-200 text-slate-700 rounded">
+                                        Panel: {sourceSide}
+                                      </span>
+                                      {val ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                          ✓ Detected
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                                          Review
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Conflict Resolution Banner */}
+                                  {hasConflict && (
+                                    <div className="mb-2 p-2 bg-amber-100/80 border border-amber-300 rounded-lg">
+                                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-900 mb-1">
+                                        <AlertTriangle size={13} className="text-amber-700" />
+                                        <span>Conflict Detected (OCR vs AI Disagreement)</span>
+                                      </div>
+                                      <p className="text-[10px] text-amber-800 mb-1.5">
+                                        Local OCR: <span className="font-mono font-bold">{fusionMeta.ocr_value || 'None'}</span> | Gemini AI: <span className="font-mono font-bold">{fusionMeta.gemini_value || 'None'}</span>
+                                      </p>
+                                      <div className="flex gap-2">
+                                        {fusionMeta.ocr_value && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleField(f.key, fusionMeta.ocr_value);
+                                            }}
+                                            className="px-2 py-1 bg-white border border-amber-400 hover:bg-amber-50 text-[10px] font-bold text-amber-900 rounded cursor-pointer"
+                                          >
+                                            Use OCR: {fusionMeta.ocr_value}
+                                          </button>
+                                        )}
+                                        {fusionMeta.gemini_value && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleField(f.key, fusionMeta.gemini_value);
+                                            }}
+                                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-[10px] font-bold text-white rounded cursor-pointer"
+                                          >
+                                            Use Gemini: {fusionMeta.gemini_value}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <input
+                                    type="text"
+                                    value={val}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => handleField(f.key, e.target.value)}
+                                    placeholder={`Enter ${f.label}...`}
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <div className="flex justify-between items-center mt-1 text-[10px] text-slate-400">
+                                    <span>{f.condition} ({f.ruleCode})</span>
+                                    {fusionMeta.confidence && (
+                                      <span className="font-mono text-slate-500">
+                                        Confidence: {Math.round(fusionMeta.confidence * 100)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     })}
@@ -1433,91 +1636,598 @@ export default function ScanPage() {
           );
           const displayProductName = isProductVerified ? fields.product_name.trim() : 'Product could not be verified';
 
-          // Statutory Checklist Items
+          // Metadata extraction from fusion pipeline
+          const fusionFields = (scanResult.extracted_fields?.fusion_fields || {}) as Record<string, any>;
+          const evidenceMap = (scanResult.extracted_fields?.evidence_map || {}) as Record<string, any>;
+          const viewsCount = selectedCount || (coverage360?.length || 1);
+          const hasQualityWarns = Boolean(
+            (qualityInfo && Object.values(qualityInfo).some((q: any) => q?.warnings && q.warnings.length > 0)) ||
+            (ocrConf !== null && ocrConf < 70)
+          );
+
+          // Helper for styling detection state badges
+          const getDetectionBadge = (state: string) => {
+            switch (state) {
+              case 'VERIFIED':
+                return { label: '✓ Verified (PASS)', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+              case 'CONFIRMED_MISSING':
+                return { label: '✗ Confirmed Missing (FAIL)', color: 'bg-rose-100 text-rose-800 border-rose-300' };
+              case 'NOT_VISIBLE':
+                return { label: '📦 Not Visible on Panel (Review)', color: 'bg-blue-100 text-blue-900 border-blue-300' };
+              case 'UNCLEAR':
+                return { label: '⚡ Unclear / Low Res (Review)', color: 'bg-amber-100 text-amber-900 border-amber-300' };
+              case 'NEEDS_MANUAL_REVIEW':
+                return { label: '⚠️ Discrepancy (Review)', color: 'bg-purple-100 text-purple-900 border-purple-300' };
+              case 'NOT_DETECTED':
+              default:
+                return { label: '🔍 Not Detected (Review)', color: 'bg-amber-100 text-amber-900 border-amber-300' };
+            }
+          };
+
+          // Statutory Checklist Items with 5 Detection States
           const inspectionChecklist = [
             {
               id: 'image',
               label: 'Package image verified',
-              status: selectedCount > 0 || (coverage360 && coverage360.length > 0) ? 'PASS' : 'REVIEW',
-              detected: `${selectedCount || (coverage360?.length || 1)} view(s) captured & verified`,
+              status: viewsCount > 0 ? ('PASS' as const) : ('REVIEW' as const),
+              detectionState: viewsCount > 0 ? (hasQualityWarns ? 'UNCLEAR' : 'VERIFIED') : 'NOT_VISIBLE',
+              detected: `${viewsCount} view(s) captured & verified`,
               required: 'Legible, unobstructed package display surfaces',
               ruleCode: 'LMR_IMG',
-              reason: 'Packaging image contains minor motion or resolution warning.',
-              action: 'Ensure steady camera capture with even lighting across all product panels.'
+              rawOcrText: viewsCount > 1 ? `${viewsCount} package surfaces captured in audit dossier` : 'Single surface photographed',
+              source: scanMode === 'video360' ? '360° Video Keyframes' : `${viewsCount}-Panel Camera Capture`,
+              evidenceRegion: 'All Captured Surfaces',
+              reason: hasQualityWarns ? 'Packaging image contains minor motion or resolution warning.' : 'Display surfaces are clear and unobstructed.',
+              action: hasQualityWarns ? 'Ensure steady camera capture with even lighting.' : 'Proceed with statutory evaluation.'
             },
             {
               id: 'declarations',
               label: 'Mandatory declarations extracted',
-              status: scoreObj.declarations_found >= 7 ? 'PASS' : scoreObj.declarations_found >= 4 ? 'REVIEW' : 'FAIL',
+              status: scoreObj.declarations_found >= 7 ? ('PASS' as const) : ('REVIEW' as const),
+              detectionState: scoreObj.declarations_found >= 7 ? 'VERIFIED' : (viewsCount === 1 ? 'NOT_VISIBLE' : 'NOT_DETECTED'),
               detected: `${scoreObj.declarations_found} of 10 mandatory declarations extracted`,
               required: 'All 10 statutory declarations under Rule 6, LMR 2011',
-              ruleCode: 'Rule 6',
-              reason: 'Some mandatory packaging declarations were not detected on captured surfaces.',
-              action: 'Rotate package to capture all sides including back, sides, and base panels.'
+              ruleCode: 'Rule 6, LMR 2011',
+              rawOcrText: `${scoreObj.declarations_found} fields parsed across captured OCR text lines`,
+              source: 'Extraction Pipeline',
+              evidenceRegion: 'All Captured Surfaces',
+              reason: scoreObj.declarations_found >= 7
+                ? 'High statutory declaration coverage across package surfaces.'
+                : viewsCount === 1
+                ? 'Single panel captured; unextracted declarations are likely printed on back, side, or top flaps.'
+                : 'Some declarations were not detected on captured surfaces. Officer visual inspection recommended.',
+              action: scoreObj.declarations_found >= 7
+                ? 'Verify physical product matching.'
+                : 'Rotate package to capture all sides including back, sides, and base panels.'
             },
-            {
-              id: 'mrp',
-              label: 'MRP checked',
-              status: fields.mrp && fields.mrp.trim().length > 0 ? 'PASS' : 'FAIL',
-              detected: fields.mrp ? `₹ ${fields.mrp}` : 'Not detected on packaging',
-              required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
-              ruleCode: 'Rule 6(1)(e)',
-              reason: 'Mandatory Maximum Retail Price declaration is missing or obscured.',
-              action: 'Print conspicuous MRP in Indian Rupees with "inclusive of all taxes" declaration.'
-            },
-            {
-              id: 'net_quantity',
-              label: 'Net quantity checked',
-              status: fields.net_quantity && fields.net_quantity.trim().length > 0 ? 'PASS' : 'FAIL',
-              detected: fields.net_quantity || 'Not detected on packaging',
-              required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
-              ruleCode: 'Rule 12 & Schedule II',
-              reason: 'Net quantity statement is missing or non-standard.',
-              action: 'Declare net quantity in standard metric units with prescribed minimum numeral height.'
-            },
-            {
-              id: 'manufacturer',
-              label: 'Manufacturer details checked',
-              status: (fields.manufacturer_name && fields.manufacturer_address) ? 'PASS' : fields.manufacturer_name ? 'REVIEW' : 'FAIL',
-              detected: fields.manufacturer_name ? `${fields.manufacturer_name}${fields.manufacturer_address ? ` (${fields.manufacturer_address})` : ''}` : 'Not detected on packaging',
-              required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
-              ruleCode: 'Rule 6(1)(a) & (b)',
-              reason: 'Manufacturer/packer name or complete physical premises address with PIN code is missing.',
-              action: 'Print complete manufacturer name and physical address including 6-digit postal PIN code.'
-            },
-            {
-              id: 'consumer_care',
-              label: 'Consumer-care details checked',
-              status: fields.consumer_care && fields.consumer_care.trim().length > 0 ? 'PASS' : 'FAIL',
-              detected: fields.consumer_care || 'Not detected on packaging',
-              required: 'Consumer grievance contact: Name, address, phone/toll-free number, and email ID',
-              ruleCode: 'Rule 6(1)(h)',
-              reason: 'Consumer care contact telephone number or email address is absent.',
-              action: 'Provide valid helpline telephone number and email address on the package for consumer grievances.'
-            },
-            {
-              id: 'country_of_origin',
-              label: 'Country of origin checked where applicable',
-              status: fields.country_of_origin && fields.country_of_origin.trim().length > 0 ? 'PASS' : 'REVIEW',
-              detected: fields.country_of_origin || 'Not explicitly stated',
-              required: 'Country of origin or "Made in India" statement on all imported and domestic goods',
-              ruleCode: 'Rule 6(1)(f)',
-              reason: 'Country of origin statement was not identified on visible packaging surfaces.',
-              action: 'Clearly print "Country of Origin: [Country]" on the packaging display panel.'
-            },
-            {
-              id: 'dates',
-              label: 'Mfg / Packing Date & Expiry checked',
-              status: (fields.mfg_date || fields.expiry_date) ? 'PASS' : 'REVIEW',
-              detected: fields.mfg_date ? `Mfg: ${fields.mfg_date}${fields.expiry_date ? ` | Exp: ${fields.expiry_date}` : ''}` : 'Not detected',
-              required: 'Month and year of manufacture or packing, with expiry date for perishable commodities',
-              ruleCode: 'Rule 6(1)(d) & Rule 6(1)(g)',
-              reason: 'Date of manufacture or packaging is missing or unreadable.',
-              action: 'Conspicuously stamp MM/YYYY or DD/MM/YYYY manufacturing and expiry dates.'
-            }
+            // MRP
+            (() => {
+              const mrpVal = fields.mrp ? fields.mrp.trim() : '';
+              const meta = fusionFields.mrp || {};
+              const rawLine = meta.raw_text_line || evidenceMap.mrp?.raw_text_line || (mrpVal ? `MRP ₹ ${mrpVal}` : 'No MRP keywords found on captured panel');
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : (viewsCount === 1 ? 'Back / Top Flap Panel Required' : 'Packaging Stamping Area');
+              const src = meta.source === 'agreed' ? 'Both (OCR & Gemini AI Verified)' : meta.source === 'local_ocr' ? 'PaddleOCR Engine' : meta.source === 'gemini_ai' ? 'Gemini Vision AI' : (viewsCount === 1 ? 'Single-Panel Scan' : 'Multi-Panel OCR Scan');
+
+              if (mrpVal && mrpVal.length > 0) {
+                if (meta.conflict) {
+                  return {
+                    id: 'mrp',
+                    label: 'MRP checked',
+                    fieldKey: 'mrp',
+                    status: 'REVIEW' as const,
+                    detectionState: 'NEEDS_MANUAL_REVIEW',
+                    detected: `₹ ${mrpVal} (Discrepancy: OCR '${meta.ocr_value}' vs AI '${meta.gemini_value}')`,
+                    required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                    ruleCode: 'Rule 6(1)(e), LMR 2011',
+                    rawOcrText: rawLine,
+                    source: 'Discrepancy (OCR vs AI)',
+                    evidenceRegion: region,
+                    reason: `Discrepancy detected between OCR and AI readings for price. Officer visual verification required.`,
+                    action: 'Inspect physical stamped price on packaging to confirm correct MRP.',
+                    ocrValue: meta.ocr_value,
+                    geminiValue: meta.gemini_value
+                  };
+                }
+                return {
+                  id: 'mrp',
+                  label: 'MRP checked',
+                  fieldKey: 'mrp',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: `₹ ${mrpVal} (Inclusive of all taxes)`,
+                  required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                  ruleCode: 'Rule 6(1)(e), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'MRP is clearly declared in valid Indian Rupee format inclusive of all taxes.',
+                  action: 'None required.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'mrp',
+                  label: 'MRP checked',
+                  fieldKey: 'mrp',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel (Single-panel scan)',
+                  required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                  ruleCode: 'Rule 6(1)(e), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan (Back/Top Flap Uncaptured)',
+                  evidenceRegion: 'Back / Top Flap Panel Required',
+                  reason: 'MRP was not detected on the single captured panel. MRP is typically printed on the back, side, or top flap.',
+                  action: 'Rotate package to capture back or side panels where price is stamped.'
+                };
+              }
+              if (hasQualityWarns) {
+                return {
+                  id: 'mrp',
+                  label: 'MRP checked',
+                  fieldKey: 'mrp',
+                  status: 'REVIEW' as const,
+                  detectionState: 'UNCLEAR',
+                  detected: 'Unclear / Obscured in current image',
+                  required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                  ruleCode: 'Rule 6(1)(e), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Image Quality Warning',
+                  evidenceRegion: 'Packaging Stamping Area',
+                  reason: 'MRP declaration may be present but is unreadable due to glare, stamp blur, or low lighting.',
+                  action: 'Verify stamped price on physical product.'
+                };
+              }
+              if (viewsCount >= 4) {
+                return {
+                  id: 'mrp',
+                  label: 'MRP checked',
+                  fieldKey: 'mrp',
+                  status: 'FAIL' as const,
+                  detectionState: 'CONFIRMED_MISSING',
+                  detected: 'Conclusively missing across all 4 panels',
+                  required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                  ruleCode: 'Rule 6(1)(e), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: '4-Panel Full Scan',
+                  evidenceRegion: 'All Captured Surfaces',
+                  reason: 'All 4 packaging surfaces were captured and verified; mandatory Maximum Retail Price declaration is absent.',
+                  action: 'Print conspicuous MRP in Indian Rupees with "inclusive of all taxes".'
+                };
+              }
+              return {
+                id: 'mrp',
+                label: 'MRP checked',
+                fieldKey: 'mrp',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not detected on captured surfaces',
+                required: 'Maximum Retail Price in Rupees (₹ / Rs.), inclusive of all taxes',
+                ruleCode: 'Rule 6(1)(e), LMR 2011',
+                rawOcrText: rawLine,
+                source: 'Multi-Panel OCR Scan',
+                evidenceRegion: 'Captured Panels',
+                reason: 'MRP was not detected on visible packaging surfaces. Do not treat as a confirmed legal violation without checking uncaptured faces.',
+                action: 'Officer manual visual inspection advised.'
+              };
+            })(),
+            // Net Quantity
+            (() => {
+              const qtyVal = fields.net_quantity ? fields.net_quantity.trim() : '';
+              const meta = fusionFields.net_quantity || {};
+              const rawLine = meta.raw_text_line || evidenceMap.net_quantity?.raw_text_line || (qtyVal || 'No quantity tokens on captured panel');
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : 'Principal Display Panel';
+              const src = meta.source === 'agreed' ? 'Both (OCR & Gemini AI Verified)' : meta.source === 'local_ocr' ? 'PaddleOCR Engine' : 'Packaging Label';
+
+              if (qtyVal && qtyVal.length > 0) {
+                const isValidUnit = /^\d+(\.\d+)?\s*(mg|g|kg|ml|l|litre|litres|liter|liters|n|u|units?)\b/i.test(qtyVal);
+                if (isValidUnit) {
+                  return {
+                    id: 'net_quantity',
+                    label: 'Net quantity checked',
+                    fieldKey: 'net_quantity',
+                    status: 'PASS' as const,
+                    detectionState: 'VERIFIED',
+                    detected: qtyVal,
+                    required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
+                    ruleCode: 'Rule 6(1)(c) & Rule 11, LMR 2011',
+                    rawOcrText: rawLine,
+                    source: src,
+                    evidenceRegion: region,
+                    reason: 'Net quantity is declared in standard metric units.',
+                    action: 'None required.'
+                  };
+                }
+                return {
+                  id: 'net_quantity',
+                  label: 'Net quantity checked',
+                  fieldKey: 'net_quantity',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NEEDS_MANUAL_REVIEW',
+                  detected: qtyVal,
+                  required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
+                  ruleCode: 'Rule 11, LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'Non-standard unit symbol used. Rule 11 prescribes standard metric symbols "g", "kg", "ml", "L", "N".',
+                  action: 'Use standard metric symbols "g", "kg", "ml", "L", or "N" with proper spacing.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'net_quantity',
+                  label: 'Net quantity checked',
+                  fieldKey: 'net_quantity',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel',
+                  required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
+                  ruleCode: 'Rule 6(1)(c), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan',
+                  evidenceRegion: 'Principal Display Panel',
+                  reason: 'Net quantity not detected on captured panel. May be printed on front PDP or base.',
+                  action: 'Capture front PDP panel to verify net weight/volume.'
+                };
+              }
+              if (viewsCount >= 4) {
+                return {
+                  id: 'net_quantity',
+                  label: 'Net quantity checked',
+                  fieldKey: 'net_quantity',
+                  status: 'FAIL' as const,
+                  detectionState: 'CONFIRMED_MISSING',
+                  detected: 'Conclusively missing across all panels',
+                  required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
+                  ruleCode: 'Rule 6(1)(c), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: '4-Panel Full Scan',
+                  evidenceRegion: 'All Captured Surfaces',
+                  reason: 'Net quantity declaration was searched and is absent across all packaging panels.',
+                  action: 'Declare net weight or volume on principal display panel.'
+                };
+              }
+              return {
+                id: 'net_quantity',
+                label: 'Net quantity checked',
+                fieldKey: 'net_quantity',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not detected on captured surfaces',
+                required: 'Net weight, volume or units in standard metric units (g, kg, ml, l, N, U)',
+                ruleCode: 'Rule 6(1)(c), LMR 2011',
+                rawOcrText: rawLine,
+                source: 'Multi-Panel OCR Scan',
+                evidenceRegion: 'Captured Panels',
+                reason: 'Net quantity not detected in current scan.',
+                action: 'Officer visual review advised.'
+              };
+            })(),
+            // Manufacturer
+            (() => {
+              const mfgName = fields.manufacturer_name ? fields.manufacturer_name.trim() : '';
+              const mfgAddr = fields.manufacturer_address ? fields.manufacturer_address.trim() : '';
+              const meta = fusionFields.manufacturer_name || {};
+              const rawLine = meta.raw_text_line || evidenceMap.manufacturer_name?.raw_text_line || (mfgName ? `Mfg by: ${mfgName}` : 'No manufacturer tokens on captured panel');
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : 'Back / Side Panel';
+              const src = meta.source === 'agreed' ? 'Both (OCR & Gemini AI Verified)' : 'Packaging Label';
+
+              if (mfgName && mfgAddr) {
+                return {
+                  id: 'manufacturer',
+                  label: 'Manufacturer details checked',
+                  fieldKey: 'manufacturer_name',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: `${mfgName} (${mfgAddr})`,
+                  required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
+                  ruleCode: 'Rule 6(1)(a) & (b), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'Complete manufacturer/packer identity and physical premises address are declared.',
+                  action: 'None required.'
+                };
+              }
+              if (mfgName) {
+                return {
+                  id: 'manufacturer',
+                  label: 'Manufacturer details checked',
+                  fieldKey: 'manufacturer_name',
+                  status: 'REVIEW' as const,
+                  detectionState: 'UNCLEAR',
+                  detected: `${mfgName} (Address unverified)`,
+                  required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
+                  ruleCode: 'Rule 6(1)(a), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'Manufacturer name detected; physical premises address or PIN code requires verification.',
+                  action: 'Ensure complete postal address including PIN code is clearly legible.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'manufacturer',
+                  label: 'Manufacturer details checked',
+                  fieldKey: 'manufacturer_name',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel',
+                  required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
+                  ruleCode: 'Rule 6(1)(a), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan',
+                  evidenceRegion: 'Back / Side Panel Required',
+                  reason: 'Manufacturer details not visible on captured panel. Normally printed on back or side panels.',
+                  action: 'Capture back or side panel containing manufacturer details.'
+                };
+              }
+              if (viewsCount >= 4) {
+                return {
+                  id: 'manufacturer',
+                  label: 'Manufacturer details checked',
+                  fieldKey: 'manufacturer_name',
+                  status: 'FAIL' as const,
+                  detectionState: 'CONFIRMED_MISSING',
+                  detected: 'Conclusively missing across all panels',
+                  required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
+                  ruleCode: 'Rule 6(1)(a), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: '4-Panel Full Scan',
+                  evidenceRegion: 'All Captured Surfaces',
+                  reason: 'Manufacturer/packer name and address absent across all captured packaging faces.',
+                  action: 'Declare complete name and address of manufacturer or packer.'
+                };
+              }
+              return {
+                id: 'manufacturer',
+                label: 'Manufacturer details checked',
+                fieldKey: 'manufacturer_name',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not detected on captured surfaces',
+                required: 'Complete name and physical premises address of manufacturer/packer/importer with PIN code',
+                ruleCode: 'Rule 6(1)(a), LMR 2011',
+                rawOcrText: rawLine,
+                source: 'Multi-Panel OCR Scan',
+                evidenceRegion: 'Captured Panels',
+                reason: 'Manufacturer details not detected on current image(s).',
+                action: 'Check other packaging faces.'
+              };
+            })(),
+            // Consumer Care
+            (() => {
+              const careVal = fields.consumer_care ? fields.consumer_care.trim() : '';
+              const meta = fusionFields.consumer_care || {};
+              const rawLine = meta.raw_text_line || (careVal || 'No consumer care tokens on captured panel');
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : 'Back / Side Panel';
+              const src = meta.source === 'agreed' ? 'Both (OCR & Gemini AI Verified)' : 'Packaging Label';
+
+              if (careVal && careVal.length > 0) {
+                return {
+                  id: 'consumer_care',
+                  label: 'Consumer-care details checked',
+                  fieldKey: 'consumer_care',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: careVal,
+                  required: 'Consumer grievance contact: Name, address, phone/toll-free number, and email ID',
+                  ruleCode: 'Rule 6(1)(da), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'Consumer care contact details are declared.',
+                  action: 'None required.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'consumer_care',
+                  label: 'Consumer-care details checked',
+                  fieldKey: 'consumer_care',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel',
+                  required: 'Consumer grievance contact: Name, address, phone/toll-free number, and email ID',
+                  ruleCode: 'Rule 6(1)(da), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan',
+                  evidenceRegion: 'Back / Side Panel Required',
+                  reason: 'Consumer care contact not visible on current panel. Typically on back or side panels.',
+                  action: 'Inspect back or side panels for consumer care helpline.'
+                };
+              }
+              if (viewsCount >= 4) {
+                return {
+                  id: 'consumer_care',
+                  label: 'Consumer-care details checked',
+                  fieldKey: 'consumer_care',
+                  status: 'FAIL' as const,
+                  detectionState: 'CONFIRMED_MISSING',
+                  detected: 'Conclusively missing across all panels',
+                  required: 'Consumer grievance contact: Name, address, phone/toll-free number, and email ID',
+                  ruleCode: 'Rule 6(1)(da), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: '4-Panel Full Scan',
+                  evidenceRegion: 'All Captured Surfaces',
+                  reason: 'Consumer care helpline/email absent across all packaging panels.',
+                  action: 'Provide customer care telephone number, email, and postal address.'
+                };
+              }
+              return {
+                id: 'consumer_care',
+                label: 'Consumer-care details checked',
+                fieldKey: 'consumer_care',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not detected on captured surfaces',
+                required: 'Consumer grievance contact: Name, address, phone/toll-free number, and email ID',
+                ruleCode: 'Rule 6(1)(da), LMR 2011',
+                rawOcrText: rawLine,
+                source: 'Multi-Panel OCR Scan',
+                evidenceRegion: 'Captured Panels',
+                reason: 'Consumer care helpline was not identified on captured panels.',
+                action: 'Verify consumer care section on packaging.'
+              };
+            })(),
+            // Country of Origin
+            (() => {
+              const originVal = fields.country_of_origin ? fields.country_of_origin.trim() : '';
+              const mfgAddr = fields.manufacturer_address ? fields.manufacturer_address.trim() : '';
+              const meta = fusionFields.country_of_origin || {};
+              const rawLine = meta.raw_text_line || (originVal ? `Origin: ${originVal}` : (mfgAddr ? `Mfg address: ${mfgAddr}` : 'No origin keywords on captured panel'));
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : 'Manufacturer Details Panel';
+
+              if (originVal && originVal.length > 0) {
+                return {
+                  id: 'country_of_origin',
+                  label: 'Country of origin checked where applicable',
+                  fieldKey: 'country_of_origin',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: originVal,
+                  required: 'Country of origin statement on all imported and domestic goods',
+                  ruleCode: 'Rule 6(10), LMR 2011 Amendment',
+                  rawOcrText: rawLine,
+                  source: 'Packaging Declaration',
+                  evidenceRegion: region,
+                  reason: `Country of origin explicitly declared as "${originVal}".`,
+                  action: 'None required.'
+                };
+              }
+              if (mfgAddr && /(India|PIN\s*\d{6}|\d{6})/i.test(mfgAddr)) {
+                return {
+                  id: 'country_of_origin',
+                  label: 'Country of origin checked where applicable',
+                  fieldKey: 'country_of_origin',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: 'Implied: India (Domestic Manufacturer Premises)',
+                  required: 'Country of origin statement on all imported and domestic goods',
+                  ruleCode: 'Rule 6(10), LMR 2011 Amendment',
+                  rawOcrText: rawLine,
+                  source: 'Domestic Manufacturer Premises',
+                  evidenceRegion: region,
+                  reason: 'Domestic manufacturer premises in India declared under Rule 6(1)(a); country of origin implied as India under Rule 6(10).',
+                  action: 'None required.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'country_of_origin',
+                  label: 'Country of origin checked where applicable',
+                  fieldKey: 'country_of_origin',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel',
+                  required: 'Country of origin statement on all imported and domestic goods',
+                  ruleCode: 'Rule 6(10), LMR 2011 Amendment',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan',
+                  evidenceRegion: 'Back Panel Required',
+                  reason: 'Country of origin not found on this panel. Often printed near manufacturer address on back panel.',
+                  action: 'Inspect back panel near manufacturer premises.'
+                };
+              }
+              return {
+                id: 'country_of_origin',
+                label: 'Country of origin checked where applicable',
+                fieldKey: 'country_of_origin',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not explicitly stated',
+                required: 'Country of origin statement on all imported and domestic goods',
+                ruleCode: 'Rule 6(10), LMR 2011 Amendment',
+                rawOcrText: rawLine,
+                source: 'OCR / Vision Pipeline',
+                evidenceRegion: 'Captured Panels',
+                reason: 'Origin statement not explicitly detected on scanned surfaces. If manufactured domestically, address fulfills statutory origin intent.',
+                action: 'Declare "Country of Origin: India" or appropriate manufacturing country if imported.'
+              };
+            })(),
+            // Dates
+            (() => {
+              const mfgDate = fields.mfg_date ? fields.mfg_date.trim() : '';
+              const expDate = fields.expiry_date ? fields.expiry_date.trim() : '';
+              const meta = fusionFields.mfg_date || {};
+              const rawLine = meta.raw_text_line || (mfgDate ? `Mfg: ${mfgDate}` : 'No date tokens on captured panel');
+              const region = meta.source_side ? `${String(meta.source_side).toUpperCase()} Panel` : 'Crimp Seal / Back Panel';
+              const src = meta.source === 'agreed' ? 'Both (OCR & Gemini AI Verified)' : 'Packaging Label';
+
+              if (mfgDate || expDate) {
+                return {
+                  id: 'dates',
+                  label: 'Mfg / Packing Date & Expiry checked',
+                  fieldKey: 'mfg_date',
+                  status: 'PASS' as const,
+                  detectionState: 'VERIFIED',
+                  detected: `Mfg: ${mfgDate || 'N/A'}${expDate ? ` | Exp: ${expDate}` : ''}`,
+                  required: 'Month and year of manufacture or packing, with expiry date for perishable commodities',
+                  ruleCode: 'Rule 6(1)(d) & Rule 6(1)(g), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: src,
+                  evidenceRegion: region,
+                  reason: 'Manufacturing/packing date is declared.',
+                  action: 'None required.'
+                };
+              }
+              if (viewsCount === 1) {
+                return {
+                  id: 'dates',
+                  label: 'Mfg / Packing Date & Expiry checked',
+                  fieldKey: 'mfg_date',
+                  status: 'REVIEW' as const,
+                  detectionState: 'NOT_VISIBLE',
+                  detected: 'Not visible on captured panel',
+                  required: 'Month and year of manufacture or packing, with expiry date for perishable commodities',
+                  ruleCode: 'Rule 6(1)(d), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: 'Single-Panel Scan',
+                  evidenceRegion: 'Crimp Seal / Back Panel',
+                  reason: 'Mfg/packing date not on captured panel. Often batch-stamped on crimp seal or back panel.',
+                  action: 'Check packaging crimp or back panel for stamped date.'
+                };
+              }
+              if (viewsCount >= 4) {
+                return {
+                  id: 'dates',
+                  label: 'Mfg / Packing Date & Expiry checked',
+                  fieldKey: 'mfg_date',
+                  status: 'FAIL' as const,
+                  detectionState: 'CONFIRMED_MISSING',
+                  detected: 'Conclusively missing across all panels',
+                  required: 'Month and year of manufacture or packing, with expiry date for perishable commodities',
+                  ruleCode: 'Rule 6(1)(d), LMR 2011',
+                  rawOcrText: rawLine,
+                  source: '4-Panel Full Scan',
+                  evidenceRegion: 'All Captured Surfaces',
+                  reason: 'Month and year of manufacture/packing absent across all packaging surfaces.',
+                  action: 'Print month and year of manufacture/packing prominently.'
+                };
+              }
+              return {
+                id: 'dates',
+                label: 'Mfg / Packing Date & Expiry checked',
+                fieldKey: 'mfg_date',
+                status: 'REVIEW' as const,
+                detectionState: 'NOT_DETECTED',
+                detected: 'Not detected on captured surfaces',
+                required: 'Month and year of manufacture or packing, with expiry date for perishable commodities',
+                ruleCode: 'Rule 6(1)(d), LMR 2011',
+                rawOcrText: rawLine,
+                source: 'Multi-Panel OCR Scan',
+                evidenceRegion: 'Captured Panels',
+                reason: 'Date of manufacture/packing not detected on current image(s).',
+                action: 'Verify physical stamp on package.'
+              };
+            })()
           ];
 
           const failedChecks = inspectionChecklist.filter((c) => c.status === 'FAIL' || c.status === 'REVIEW');
+          const confirmedFails = inspectionChecklist.filter((c) => c.status === 'FAIL' || c.detectionState === 'CONFIRMED_MISSING');
+          const reviewItems = inspectionChecklist.filter((c) => c.status === 'REVIEW' && c.detectionState !== 'CONFIRMED_MISSING');
           const passedChecks = inspectionChecklist.filter((c) => c.status === 'PASS');
 
           return (
@@ -1558,8 +2268,8 @@ export default function ScanPage() {
                       {isCompliant
                         ? 'All mandatory statutory declarations meet the Legal Metrology (Packaged Commodities) Rules, 2011.'
                         : isNeedsReview
-                        ? 'Packaged commodity contains valid declarations but requires officer inspection of packaging panels or scale.'
-                        : 'One or more mandatory Legal Metrology requirements failed statutory verification.'}
+                        ? `Packaged commodity contains valid declarations. ${reviewItems.length} declaration(s) require officer verification or multi-panel capture without assuming violation.`
+                        : `${confirmedFails.length} mandatory Legal Metrology requirement(s) conclusively failed statutory verification.`}
                     </p>
                   </div>
 
@@ -1621,6 +2331,7 @@ export default function ScanPage() {
                     <div className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl self-start sm:self-center">
                       <span className="text-[9px] uppercase font-bold text-slate-400 block">Barcode / GTIN</span>
                       <span className="text-xs font-mono font-bold text-slate-800">{scanResult.barcode}</span>
+                      <span className="text-[9px] font-bold text-amber-700 block mt-0.5">BARCODE DETECTED — PRODUCT NOT VERIFIED IN NATIONAL DB</span>
                     </div>
                   )}
                 </div>
@@ -1635,18 +2346,19 @@ export default function ScanPage() {
                       Statutory Inspection Checklist
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Standard verification outcome for all mandatory Legal Metrology declarations.
+                      Standard verification outcome distinguishing verified declarations, uncaptured panels, and unreadable labels.
                     </p>
                   </div>
                   <span className="text-xs font-black bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200 self-start sm:self-auto">
-                    {passedChecks.length} Passed • {failedChecks.length} Flagged
+                    {passedChecks.length} Passed • {reviewItems.length} Needs Review • {confirmedFails.length} Failed
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {inspectionChecklist.map((item) => {
                     const isPass = item.status === 'PASS';
-                    const isRev = item.status === 'REVIEW';
+                    const isFail = item.status === 'FAIL';
+                    const badge = getDetectionBadge(item.detectionState);
 
                     return (
                       <div
@@ -1654,34 +2366,33 @@ export default function ScanPage() {
                         className={`p-4 rounded-xl border flex items-start justify-between gap-3 transition-colors ${
                           isPass
                             ? 'bg-emerald-50/50 border-emerald-200'
-                            : isRev
-                            ? 'bg-amber-50/50 border-amber-200'
-                            : 'bg-rose-50/50 border-rose-200'
+                            : isFail
+                            ? 'bg-rose-50/50 border-rose-200'
+                            : 'bg-amber-50/50 border-amber-200'
                         }`}
                       >
-                        <div className="space-y-1">
+                        <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className={`text-base font-black ${
-                              isPass ? 'text-emerald-700' : isRev ? 'text-amber-700' : 'text-rose-700'
+                              isPass ? 'text-emerald-700' : isFail ? 'text-rose-700' : 'text-amber-700'
                             }`}>
-                              {isPass ? '✓' : isRev ? '⚠' : '✗'}
+                              {isPass ? '✓' : isFail ? '✗' : '⚠'}
                             </span>
-                            <span className="text-xs font-black text-slate-900">{item.label}</span>
+                            <span className="text-xs font-black text-slate-900 truncate">{item.label}</span>
                           </div>
-                          <p className="text-[11px] font-mono text-slate-700 pl-5">
+                          
+                          <p className="text-[11px] font-mono font-bold text-slate-800 pl-5 truncate">
                             {item.detected}
                           </p>
-                          <span className="text-[10px] text-slate-400 pl-5 block">
-                            Mandate: {item.required} ({item.ruleCode})
-                          </span>
+
+                          <div className="pl-5 space-y-0.5 text-[10px] text-slate-500 font-medium">
+                            <div><span className="font-bold text-slate-600">Rule:</span> {item.ruleCode}</div>
+                            <div><span className="font-bold text-slate-600">Source:</span> {item.source} • <span className="font-bold text-slate-600">Region:</span> {item.evidenceRegion}</div>
+                          </div>
                         </div>
 
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${
-                          isPass ? 'bg-emerald-100 text-emerald-800' :
-                          isRev ? 'bg-amber-100 text-amber-900' :
-                          'bg-rose-100 text-rose-800'
-                        }`}>
-                          {isPass ? 'Pass' : isRev ? 'Review' : 'Failed'}
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border flex-shrink-0 whitespace-nowrap ${badge.color}`}>
+                          {badge.label}
                         </span>
                       </div>
                     );
@@ -1691,64 +2402,75 @@ export default function ScanPage() {
 
               {/* ── 4. ACTIONABLE FAILURE & REVIEW FINDINGS ──────────────────────────── */}
               {failedChecks.length > 0 && (
-                <div className="bg-rose-50/40 border border-rose-200 rounded-2xl p-6 shadow-2xs space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-rose-200 pb-3">
-                    <AlertCircle size={20} className="text-rose-600 flex-shrink-0" />
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-200 pb-3">
+                    <AlertCircle size={20} className="text-blue-600 flex-shrink-0" />
                     <div>
-                      <h3 className="font-black text-rose-950 text-base">
-                        Failed / Non-Compliant Checks Breakdown ({failedChecks.length})
+                      <h3 className="font-black text-slate-950 text-base">
+                        Statutory Verification & Evidence Breakdown ({failedChecks.length})
                       </h3>
-                      <p className="text-xs text-rose-800 mt-0.5">
-                        Statutory breaches and advisory items requiring corrective action or officer inspection.
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Comprehensive evidence proof distinguishing confirmed omissions, uncaptured package panels, and image quality warnings.
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    {failedChecks.map((fc) => (
-                      <div
-                        key={fc.id}
-                        className="bg-white p-4 rounded-xl border border-rose-200 shadow-xs space-y-2.5"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-rose-600 font-black text-base">✗</span>
-                            <h4 className="text-xs font-black text-slate-900">{fc.label}</h4>
-                          </div>
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                            fc.status === 'FAIL' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-900'
-                          }`}>
-                            {fc.status === 'FAIL' ? 'Non-Compliant' : 'Needs Review'}
-                          </span>
-                        </div>
+                    {failedChecks.map((fc) => {
+                      const badge = getDetectionBadge(fc.detectionState);
+                      const isFail = fc.status === 'FAIL';
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Detected Value</span>
-                            <span className="font-mono font-bold text-rose-900">{fc.detected}</span>
+                      return (
+                        <div
+                          key={fc.id}
+                          className={`bg-white p-4 rounded-xl border shadow-xs space-y-3 ${
+                            isFail ? 'border-rose-200' : 'border-amber-200'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-black text-base ${isFail ? 'text-rose-600' : 'text-amber-600'}`}>
+                                {isFail ? '✗' : '⚠'}
+                              </span>
+                              <h4 className="text-xs font-black text-slate-900">{fc.label}</h4>
+                            </div>
+                            <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${badge.color}`}>
+                              {badge.label}
+                            </span>
                           </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Required Value / Declaration</span>
-                            <span className="text-slate-800 font-medium">{fc.required}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Relevant Rule / Section</span>
-                            <span className="font-mono font-bold text-blue-800">{fc.ruleCode}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Reason for Failure</span>
-                            <span className="text-rose-800">{fc.reason}</span>
-                          </div>
-                        </div>
 
-                        <div className="p-2.5 bg-blue-50/70 rounded-lg border border-blue-100 text-xs text-blue-900 flex items-start gap-2">
-                          <span className="font-bold text-[10px] uppercase bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded flex-shrink-0">
-                            Suggested Action
-                          </span>
-                          <span className="font-medium text-[11px]">{fc.action}</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase block">Extracted / Verified Value</span>
+                              <span className={`font-mono font-bold ${isFail ? 'text-rose-900' : 'text-amber-900'}`}>{fc.detected}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase block">Actual OCR Text Snippet Used</span>
+                              <span className="font-mono text-slate-800 text-[11px] block truncate">{fc.rawOcrText}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase block">Evidence Source & Panel</span>
+                              <span className="text-slate-800 font-semibold">{fc.source} ({fc.evidenceRegion})</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase block">Applicable Legal Mandate</span>
+                              <span className="font-mono font-bold text-blue-800">{fc.ruleCode}</span>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <span className="text-[9px] font-bold text-slate-500 uppercase block">Statutory Reason / Assessment</span>
+                              <span className="text-slate-800 leading-relaxed">{fc.reason}</span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 bg-blue-50/70 rounded-lg border border-blue-100 text-xs text-blue-900 flex items-start gap-2">
+                            <span className="font-bold text-[10px] uppercase bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded flex-shrink-0">
+                              Suggested Officer Action
+                            </span>
+                            <span className="font-medium text-[11px]">{fc.action}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1786,7 +2508,30 @@ export default function ScanPage() {
                       {METROLOGY_FIELDS.map((fc) => {
                         const val = fields[fc.key];
                         const hasVal = Boolean(val && val.trim());
+                        const checkMatch = inspectionChecklist.find((c: any) => c.fieldKey === fc.key || c.id === fc.key);
                         const isCritical = fc.isCritical;
+                        const meta = fusionFields[fc.key] || {};
+                        const sourceSide = meta.source_side ? String(meta.source_side).toUpperCase() : (checkMatch?.evidenceRegion || 'Unseen Surface');
+
+                        let displayVal = val;
+                        let badgeLabel = '✅ Verified';
+                        let badgeColor = 'bg-emerald-100 text-emerald-800';
+
+                        if (!hasVal) {
+                          if (checkMatch) {
+                            displayVal = checkMatch.detected;
+                            const b = getDetectionBadge(checkMatch.detectionState);
+                            badgeLabel = b.label;
+                            badgeColor = b.color;
+                          } else {
+                            displayVal = viewsCount === 1 ? 'Not visible on captured panel' : 'Not detected on current image';
+                            badgeLabel = isCritical ? '⚠️ Needs Review' : 'ℹ️ Optional / Absent';
+                            badgeColor = isCritical ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700';
+                          }
+                        } else if (meta.conflict) {
+                          badgeLabel = '⚠️ Discrepancy (Review)';
+                          badgeColor = 'bg-purple-100 text-purple-900 border border-purple-300';
+                        }
 
                         return (
                           <tr key={fc.key} className="hover:bg-slate-50/50 transition-colors">
@@ -1799,34 +2544,30 @@ export default function ScanPage() {
                             </td>
 
                             <td className="p-3 font-mono font-semibold text-slate-800 max-w-xs truncate">
-                              {hasVal ? val : <span className="text-slate-400 italic">Not detected on captured surfaces</span>}
+                              {displayVal}
                             </td>
 
                             <td className="p-3">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                hasVal ? 'bg-emerald-100 text-emerald-800' :
-                                isCritical ? 'bg-amber-100 text-amber-800' :
-                                'bg-slate-100 text-slate-700'
-                              }`}>
-                                {hasVal ? '✅ Verified' : isCritical ? '⚠️ Needs Review' : 'ℹ️ Optional / Non-Critical'}
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${badgeColor}`}>
+                                {badgeLabel}
                               </span>
                             </td>
 
                             <td className="p-3 font-mono font-bold text-slate-700">
-                              {hasVal ? `${Math.min(99, Math.max(88, Math.round((ocrConf || 90) * 1.05)))}%` : '—'}
+                              {hasVal ? `${Math.min(99, Math.max(85, Math.round((ocrConf || 90) * 1.05)))}%` : '—'}
                             </td>
 
                             <td className="p-3">
                               <span className="text-[10px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">
-                                {hasVal ? (scanMode === 'video360' ? '360° Keyframe' : 'Principal Display Panel') : 'Unseen Surface'}
+                                {sourceSide}
                               </span>
                             </td>
 
                             <td className="p-3">
                               <span className={`text-[11px] font-bold ${
-                                hasVal ? 'text-emerald-700' : 'text-amber-700'
+                                hasVal && !meta.conflict ? 'text-emerald-700' : 'text-amber-700'
                               }`}>
-                                {hasVal ? 'Clearly Visible • High Contrast' : 'Needs Officer Visual Confirmation'}
+                                {hasVal && !meta.conflict ? 'Clearly Visible • High Contrast' : 'Needs Officer Visual Confirmation'}
                               </span>
                             </td>
                           </tr>

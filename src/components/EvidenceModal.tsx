@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Eye, X, ShieldAlert, Check } from 'lucide-react';
 import type { FindingEvidence } from '../types/complaint';
+import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
 
 interface EvidenceModalProps {
   isOpen: boolean;
@@ -63,9 +64,10 @@ export default function EvidenceModal({
             {finding.evidenceImageUrl ? (
               <div className="relative w-full h-full max-h-[300px] flex items-center justify-center">
                 <img
-                  src={finding.evidenceImageUrl}
+                  src={resolveImageUrl(finding.evidenceImageUrl)}
                   alt="Packaging Evidence"
                   className="w-full h-auto object-contain max-h-[300px]"
+                  onError={(e) => handleImageError(e)}
                 />
                 {finding.highlightBox && (
                   <div
@@ -82,11 +84,17 @@ export default function EvidenceModal({
                     </span>
                   </div>
                 )}
+                {!finding.highlightBox && (
+                  <div className="absolute bottom-2 right-2 bg-slate-900/80 text-slate-300 text-[9px] px-2 py-0.5 rounded border border-slate-700">
+                    Full Panel Visual Excerpt
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center p-8 text-slate-400">
                 <ShieldAlert size={32} className="mx-auto mb-2 text-slate-500" />
                 <span>Original packaging photographic panel excerpt</span>
+                <span className="block text-[10px] text-slate-500 mt-1 font-mono">Evidence coordinates not directly localized</span>
               </div>
             )}
           </div>

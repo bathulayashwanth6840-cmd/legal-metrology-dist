@@ -6,6 +6,7 @@ import {
   Search
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -362,12 +363,10 @@ export default function HistoryPage() {
                   {/* Thumbnail */}
                   <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
                     <img
-                      src={`${apiUrl}/uploads/${scan.image_path}`}
+                      src={resolveImageUrl(scan.image_path, apiUrl)}
                       alt="Scan thumbnail"
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/legal_metrology_logo.jpg';
-                      }}
+                      onError={(e) => handleImageError(e)}
                     />
                   </div>
 

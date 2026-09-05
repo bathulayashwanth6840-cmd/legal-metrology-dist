@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, ShieldCheck, AlertTriangle, Send,
   Clock, Eye, Building2, Tag, Sparkles,
-  ClipboardList, Check, RefreshCw
+  ClipboardList, Check, RefreshCw, ZoomIn, Download, X
 } from 'lucide-react';
 import {
   getComplaintById,
@@ -16,6 +16,7 @@ import { useRole } from '../context/RoleContext';
 import ForwardModal from '../components/ForwardModal';
 import VerificationModal from '../components/VerificationModal';
 import EvidenceModal from '../components/EvidenceModal';
+import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
 
 const STATUS_BADGES: Record<
   ComplaintStatus,
@@ -34,6 +35,7 @@ const STATUS_BADGES: Record<
 export default function ComplaintDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { currentRole, profile } = useRole();
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const [complaint, setComplaint] = useState<ComplaintRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,7 @@ export default function ComplaintDetailPage() {
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [selectedFinding, setSelectedFinding] = useState<FindingEvidence | null>(null);
+  const [selectedEvidencePhoto, setSelectedEvidencePhoto] = useState<{ url: string; side: string } | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -294,18 +297,42 @@ export default function ComplaintDetailPage() {
             {/* Package Images Gallery */}
             {complaint.inspection.packageImages && complaint.inspection.packageImages.length > 0 && (
               <div className="pt-2">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">
-                  Seized Package Evidence Photos ({complaint.inspection.packageImages.length}):
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  {complaint.inspection.packageImages.map((img, i) => (
-                    <div key={i} className="group relative rounded-xl overflow-hidden border border-slate-200 h-20 bg-slate-100">
-                      <img src={img.url} alt={img.side} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[8px] font-bold text-white px-1 py-0.5 truncate text-center">
-                        {img.side}
-                      </span>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                    Seized Package Evidence Photos ({complaint.inspection.packageImages.length}):
+                  </span>
+                  <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
+                    <Eye size={12} /> Click to examine
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {complaint.inspection.packageImages.map((img, i) => {
+                    const resolvedUrl = resolveImageUrl(img.url, apiUrl);
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedEvidencePhoto({ url: resolvedUrl, side: img.side })}
+                        className="group relative rounded-xl overflow-hidden border border-slate-200 h-24 bg-slate-100 cursor-pointer shadow-2xs hover:border-blue-500 hover:shadow-md transition-all"
+                        title={`Click to view ${img.side}`}
+                      >
+                        <img
+                          src={resolvedUrl}
+                          alt={img.side}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          onError={(e) => handleImageError(e)}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute bottom-1 inset-x-1 flex items-center justify-between px-1">
+                          <span className="text-[9px] font-extrabold text-white truncate bg-slate-900/70 backdrop-blur-xs px-1.5 py-0.5 rounded">
+                            {img.side}
+                          </span>
+                          <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600/80 p-0.5 rounded">
+                            <ZoomIn size={11} />
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -597,6 +624,69 @@ export default function ComplaintDetailPage() {
           onClose={() => setSelectedFinding(null)}
           onMarkReviewed={handleMarkEvidenceReviewed}
         />
+      )}
+
+      {/* Seized Package Evidence Photo Lightbox Modal */}
+      {selectedEvidencePhoto && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setSelectedEvidencePhoto(null)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+                  <Tag size={16} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white">{selectedEvidencePhoto.side}</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Case: {complaint.id} • Ref: {complaint.inspectionId}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={selectedEvidencePhoto.url}
+                  download={`Evidence_${complaint.id}_${selectedEvidencePhoto.side.replace(/\s+/g, '_')}.jpg`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors inline-flex items-center gap-1 text-xs"
+                  title="Open full size / download"
+                >
+                  <Download size={16} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvidencePhoto(null)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 p-4 flex items-center justify-center bg-slate-950/50 min-h-[350px] max-h-[65vh] overflow-auto">
+              <img
+                src={selectedEvidencePhoto.url}
+                alt={selectedEvidencePhoto.side}
+                className="max-h-[60vh] max-w-full object-contain rounded-xl shadow-lg"
+                onError={(e) => handleImageError(e)}
+              />
+            </div>
+
+            <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>Commodity: <strong className="text-white">{complaint.product.productName}</strong></span>
+              <span className="font-mono text-[10px] bg-slate-800 px-2 py-0.5 rounded text-amber-400">
+                Statutory Physical Packaging Record
+              </span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
