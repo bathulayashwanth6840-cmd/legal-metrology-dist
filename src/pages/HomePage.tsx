@@ -1,15 +1,16 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
-import { useLanguage } from '../i18n/LanguageContext';
+import { useRole } from '../context/RoleContext';
 import {
   Camera, ShieldCheck, Sparkles, ArrowRight,
-  Video, Eye, RefreshCw, FileWarning, ChevronRight
+  Video, Eye, RefreshCw, FileWarning, ChevronRight,
+  BookOpen, Search, TrendingUp, History as HistoryIcon
 } from 'lucide-react';
 import { getStoredComplaints } from '../services/complaintService';
 import type { ComplaintRecord } from '../types/complaint';
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { profile, isCitizen, isOfficer, isAdmin } = useRole();
   const [scans, setScans] = useState<any[]>([]);
   const [complaints, setComplaints] = useState<ComplaintRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,34 +143,108 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-blue-900/60 border border-blue-700/60 px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest text-blue-300 uppercase mb-3">
                 <Sparkles size={12} className="text-amber-400" />
-                <span>SIH 2024 LEGAL METROLOGY AI PLATFORM</span>
+                <span>SIH 2024 LEGAL METROLOGY AI PLATFORM • {profile.badge}</span>
               </div>
               <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-                {t('home.title') || 'Enforcement Officer Inspection Dashboard'}
+                {isCitizen
+                  ? 'Citizen Packaging Grievance & Compliance Portal'
+                  : isAdmin
+                  ? 'Central Metrology Directorate & Compliance Dashboard'
+                  : 'Enforcement Officer Packaging Inspection Dashboard'}
               </h1>
               <p className="text-xs sm:text-sm text-blue-200 mt-2 max-w-2xl leading-relaxed font-medium">
-                {t('home.subtitle') || 'Autonomous AI inspection suite for verifying packaged commodity declarations under the Legal Metrology (Packaged Commodities) Rules, 2011.'}
+                {isCitizen
+                  ? 'Public citizen portal for reporting packaged commodity non-compliance, tracking verification dockets, and exploring statutory rules.'
+                  : isAdmin
+                  ? 'Executive regulatory dashboard for real-time compliance tracking, statutory enforcement analytics, and multi-zone audit trail inspection.'
+                  : 'Autonomous AI inspection suite for verifying packaged commodity declarations under the Legal Metrology (Packaged Commodities) Rules, 2011.'}
               </p>
             </div>
 
-            {/* Quick Action Buttons */}
+            {/* Role-Tailored Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
-              <Link
-                to="/scan"
-                className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-[0.98]"
-              >
-                <Camera size={16} />
-                <span>New Inspection</span>
-                <ArrowRight size={14} />
-              </Link>
+              {isCitizen ? (
+                <>
+                  <Link
+                    to="/complaints"
+                    className="px-5 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <FileWarning size={16} />
+                    <span>File / View Complaints</span>
+                    <ArrowRight size={14} />
+                  </Link>
 
-              <Link
-                to="/complaints"
-                className="px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98]"
-              >
-                <FileWarning size={16} />
-                <span>Complaints & Enquiries</span>
-              </Link>
+                  <Link
+                    to="/track"
+                    className="px-5 py-3.5 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <Search size={16} />
+                    <span>Track Complaint</span>
+                  </Link>
+
+                  <Link
+                    to="/rules"
+                    className="px-4 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-1.5 transition-all"
+                  >
+                    <BookOpen size={15} />
+                    <span>Rules</span>
+                  </Link>
+                </>
+              ) : isOfficer ? (
+                <>
+                  <Link
+                    to="/scan"
+                    className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <Camera size={16} />
+                    <span>New Inspection</span>
+                    <ArrowRight size={14} />
+                  </Link>
+
+                  <Link
+                    to="/scan?mode=video360"
+                    className="px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <Video size={16} />
+                    <span>360° Video Scan</span>
+                  </Link>
+
+                  <Link
+                    to="/history"
+                    className="px-4 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-1.5 transition-all"
+                  >
+                    <HistoryIcon size={15} />
+                    <span>History</span>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/scan"
+                    className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <Camera size={16} />
+                    <span>New Inspection</span>
+                    <ArrowRight size={14} />
+                  </Link>
+
+                  <Link
+                    to="/analytics"
+                    className="px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <TrendingUp size={16} />
+                    <span>Compliance Analytics</span>
+                  </Link>
+
+                  <Link
+                    to="/complaints"
+                    className="px-4 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 flex items-center gap-1.5 transition-all"
+                  >
+                    <FileWarning size={15} />
+                    <span>Complaints</span>
+                  </Link>
+                </>
+              )}
 
               <button
                 type="button"

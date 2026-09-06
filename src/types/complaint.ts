@@ -12,7 +12,7 @@ export type ComplaintStatus =
 
 export type ComplaintPriority = 'High' | 'Medium' | 'Low';
 
-export type UserRole = 'inspector' | 'senior_official' | 'citizen';
+export type UserRole = 'inspector' | 'senior_official' | 'citizen' | 'admin';
 
 export interface FindingEvidence {
   id: string;

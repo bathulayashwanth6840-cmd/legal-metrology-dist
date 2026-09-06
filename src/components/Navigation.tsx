@@ -1,12 +1,13 @@
 // src/components/Navigation.tsx
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Camera, History, User, BookOpen,
   Globe, Video, FileText, TrendingUp, ShieldCheck,
-  FileWarning, Search
+  FileWarning, Search, LogOut, Sparkles
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
+import { useRole } from '../context/RoleContext';
 import RoleSwitcher from './RoleSwitcher';
 import ThemeToggle from './ThemeToggle';
 
@@ -15,6 +16,7 @@ interface NavItem {
   icon: React.ReactNode;
   label: string;
   badge?: string;
+  allowedRoles?: ('citizen' | 'inspector' | 'admin')[];
 }
 
 interface NavSection {
@@ -25,7 +27,9 @@ interface NavSection {
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
+  const { currentRole, logout } = useRole();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isItemActive = (itemTo: string) => {
     const currentFullPath = location.pathname + location.search;
@@ -35,66 +39,140 @@ export default function Navigation() {
     }
 
     if (itemTo.includes('?')) {
-      // Exact match for query parameters like /scan?mode=video360
       return currentFullPath === itemTo;
     }
 
     if (itemTo === '/scan') {
-      // Active ONLY when on /scan and NOT in 360 mode
       return location.pathname === '/scan' && !location.search.includes('mode=video360');
     }
 
     return location.pathname.startsWith(itemTo);
   };
 
-  const navSections: NavSection[] = [
+  const normalizedRole = currentRole === 'senior_official' ? 'admin' : currentRole;
+
+  // Master Navigation Blueprint with Role Access Control
+  const rawNavSections: NavSection[] = [
     {
       title: 'MAIN',
       items: [
-        { to: '/', icon: <Home size={18} aria-hidden="true" />, label: t('nav.home') || 'Dashboard' },
-        { to: '/scan', icon: <Camera size={18} aria-hidden="true" />, label: t('nav.scan') || 'New Inspection' },
-        { to: '/scan?mode=video360', icon: <Video size={18} aria-hidden="true" />, label: t('nav.video360') || '360° Scan', badge: '360°' },
+        {
+          to: '/',
+          icon: <Home size={18} aria-hidden="true" />,
+          label: t('nav.home') || 'Dashboard',
+          allowedRoles: ['citizen', 'inspector', 'admin'],
+        },
+        {
+          to: '/scan',
+          icon: <Camera size={18} aria-hidden="true" />,
+          label: t('nav.scan') || 'New Inspection',
+          allowedRoles: ['inspector', 'admin'],
+        },
+        {
+          to: '/scan?mode=video360',
+          icon: <Video size={18} aria-hidden="true" />,
+          label: t('nav.video360') || '360° Scan',
+          badge: '360°',
+          allowedRoles: ['inspector', 'admin'],
+        },
       ],
     },
     {
       title: 'COMPLAINTS',
       items: [
-        { to: '/complaints', icon: <FileWarning size={18} aria-hidden="true" />, label: t('nav.complaints') || 'Complaints & Enquiries', badge: 'NEW' },
-        { to: '/track', icon: <Search size={18} aria-hidden="true" />, label: t('nav.track') || 'Track Complaint' },
+        {
+          to: '/complaints',
+          icon: <FileWarning size={18} aria-hidden="true" />,
+          label: t('nav.complaints') || 'Complaints & Enquiries',
+          badge: 'NEW',
+          allowedRoles: ['citizen', 'admin'],
+        },
+        {
+          to: '/track',
+          icon: <Search size={18} aria-hidden="true" />,
+          label: t('nav.track') || 'Track Complaint',
+          allowedRoles: ['citizen', 'inspector', 'admin'],
+        },
       ],
     },
     {
       title: 'INSPECTIONS',
       items: [
-        { to: '/history', icon: <History size={18} aria-hidden="true" />, label: t('nav.history') || 'Inspection History' },
-        { to: '/reports', icon: <FileText size={18} aria-hidden="true" />, label: t('nav.reports') || 'Reports' },
+        {
+          to: '/history',
+          icon: <History size={18} aria-hidden="true" />,
+          label: t('nav.history') || 'Inspection History',
+          allowedRoles: ['inspector', 'admin'],
+        },
+        {
+          to: '/reports',
+          icon: <FileText size={18} aria-hidden="true" />,
+          label: t('nav.reports') || 'Reports',
+          allowedRoles: ['inspector', 'admin'],
+        },
       ],
     },
     {
       title: 'ADMINISTRATION',
       hasDivider: true,
       items: [
-        { to: '/analytics', icon: <TrendingUp size={18} aria-hidden="true" />, label: t('nav.analytics') || 'Compliance Analytics' },
-        { to: '/rules', icon: <BookOpen size={18} aria-hidden="true" />, label: t('nav.rules') || 'Rules & Act' },
-        { to: '/profile', icon: <User size={18} aria-hidden="true" />, label: t('nav.profile') || 'Settings & Profile' },
+        {
+          to: '/analytics',
+          icon: <TrendingUp size={18} aria-hidden="true" />,
+          label: t('nav.analytics') || 'Compliance Analytics',
+          allowedRoles: ['admin'],
+        },
+        {
+          to: '/rules',
+          icon: <BookOpen size={18} aria-hidden="true" />,
+          label: t('nav.rules') || 'Rules & Act',
+          allowedRoles: ['citizen', 'inspector', 'admin'],
+        },
+        {
+          to: '/profile',
+          icon: <User size={18} aria-hidden="true" />,
+          label: t('nav.profile') || 'Settings & Profile',
+          allowedRoles: ['citizen', 'inspector', 'admin'],
+        },
       ],
     },
   ];
 
-  // Mobile bottom navigation items (top essentials)
-  const mobileNavItems: NavItem[] = [
-    { to: '/', icon: <Home size={18} aria-hidden="true" />, label: t('nav.home') || 'Dashboard' },
-    { to: '/scan', icon: <Camera size={18} aria-hidden="true" />, label: t('nav.scan') || 'Scan' },
-    { to: '/complaints', icon: <FileWarning size={18} aria-hidden="true" />, label: t('nav.complaints') || 'Complaints' },
-    { to: '/history', icon: <History size={18} aria-hidden="true" />, label: t('nav.history') || 'History' },
-    { to: '/profile', icon: <User size={18} aria-hidden="true" />, label: t('nav.profile') || 'Settings' },
+  // Dynamically filter sections and items for the current role
+  const navSections = rawNavSections
+    .map((sec) => ({
+      ...sec,
+      items: sec.items.filter(
+        (item) => !item.allowedRoles || item.allowedRoles.includes(normalizedRole as any)
+      ),
+    }))
+    .filter((sec) => sec.items.length > 0);
+
+  // Dynamic Mobile bottom navigation items based on active role
+  const rawMobileNavItems: NavItem[] = [
+    { to: '/', icon: <Home size={18} aria-hidden="true" />, label: 'Dashboard', allowedRoles: ['citizen', 'inspector', 'admin'] },
+    { to: '/scan', icon: <Camera size={18} aria-hidden="true" />, label: 'Scan', allowedRoles: ['inspector', 'admin'] },
+    { to: '/complaints', icon: <FileWarning size={18} aria-hidden="true" />, label: 'Complaints', allowedRoles: ['citizen', 'admin'] },
+    { to: '/track', icon: <Search size={18} aria-hidden="true" />, label: 'Track', allowedRoles: ['citizen'] },
+    { to: '/history', icon: <History size={18} aria-hidden="true" />, label: 'History', allowedRoles: ['inspector', 'admin'] },
+    { to: '/analytics', icon: <TrendingUp size={18} aria-hidden="true" />, label: 'Analytics', allowedRoles: ['admin'] },
+    { to: '/profile', icon: <User size={18} aria-hidden="true" />, label: 'Profile', allowedRoles: ['citizen', 'inspector', 'admin'] },
   ];
+
+  const mobileNavItems = rawMobileNavItems.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(normalizedRole as any)
+  );
 
   const languages: { code: Language; label: string; flag: string }[] = [
     { code: 'en', label: 'English', flag: '🇬🇧' },
     { code: 'hi', label: 'हिन्दी', flag: '🇮🇳' },
     { code: 'te', label: 'తెలుగు', flag: '🇮🇳' },
   ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <>
@@ -129,8 +207,9 @@ export default function Navigation() {
         {/* Live Role Persona Switcher in Header */}
         <div className="px-3.5 py-2.5 bg-blue-950/70 border-b border-blue-900/60 flex items-center justify-between">
           <RoleSwitcher />
-          <span className="text-[9px] bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30">
-            SIH 2024
+          <span className="text-[9px] bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30 flex items-center gap-1">
+            <Sparkles size={10} />
+            <span>Demo</span>
           </span>
         </div>
 
@@ -191,9 +270,24 @@ export default function Navigation() {
           ))}
         </nav>
 
-        {/* Theme Mode Toggle */}
-        <div className="p-3 border-t border-blue-950/60 bg-blue-950/40">
+        {/* Demo Mode Subtitle Indicator */}
+        <div className="px-3.5 py-2 bg-blue-950/60 border-t border-blue-900/40 text-[10px] text-blue-300/70 font-mono flex items-center justify-between">
+          <span>Demo Mode — Hackathon</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        </div>
+
+        {/* Theme Mode Toggle & Logout */}
+        <div className="p-3 border-t border-blue-950/60 bg-blue-950/40 flex items-center justify-between">
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Logout of Demo Session"
+            className="p-2 text-rose-300 hover:text-white hover:bg-rose-950/60 rounded-xl transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+          >
+            <LogOut size={14} />
+            <span className="text-[10px]">Logout</span>
+          </button>
         </div>
 
         {/* Language Selector Section */}
@@ -230,10 +324,11 @@ export default function Navigation() {
       </aside>
 
       {/* ── Mobile Top Role Switcher Bar ─────────────────────────────────── */}
-      <header className="sm:hidden bg-[var(--color-navy)] px-4 py-2 border-b border-blue-900 flex items-center justify-between text-white">
+      <header className="sm:hidden bg-[var(--color-navy)] px-4 py-2.5 border-b border-blue-900 flex items-center justify-between text-white">
         <div className="flex items-center gap-2">
           <ShieldCheck size={18} className="text-amber-400" aria-hidden="true" />
           <span className="font-bold text-xs">LegalMetriX</span>
+          <span className="text-[8px] bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.2 rounded">Demo</span>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle compact />
