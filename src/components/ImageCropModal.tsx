@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
 import { X, Check, ZoomIn, ZoomOut, Crop, RotateCcw, FastForward } from 'lucide-react';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export default function ImageCropModal({
   const [zoom, setZoom] = useState<number>(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  const modalRef = useFocusTrap({ isOpen, onClose });
 
   const onCropChange = (newCrop: { x: number; y: number }) => {
     setCrop(newCrop);
@@ -71,27 +74,42 @@ export default function ImageCropModal({
   if (!isOpen || !imageSrc) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crop-modal-title"
+      aria-describedby="crop-modal-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-slate-900 border border-slate-800 text-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] focus:outline-none"
+        tabIndex={-1}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-900/90">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center"
+              aria-hidden="true"
+            >
               <Crop size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base text-slate-100 uppercase tracking-wide">
+              <h2 id="crop-modal-title" className="font-bold text-sm sm:text-base text-slate-100 uppercase tracking-wide">
                 Crop {sideLabel} Image
-              </h3>
-              <p className="text-xs text-slate-400">Drag to adjust position and zoom in on product text</p>
+              </h2>
+              <p id="crop-modal-desc" className="text-xs text-slate-400">
+                Drag to adjust position and zoom in on product text
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close crop modal"
-            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Close crop dialog"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -115,10 +133,10 @@ export default function ImageCropModal({
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.max(1, z - 0.2))}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800"
-                title="Zoom Out"
+                aria-label="Zoom out image"
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
-                <ZoomOut size={16} />
+                <ZoomOut size={16} aria-hidden="true" />
               </button>
               <input
                 type="range"
@@ -126,19 +144,19 @@ export default function ImageCropModal({
                 min={1}
                 max={3}
                 step={0.05}
-                aria-label="Zoom"
+                aria-label="Image zoom magnification level"
                 onChange={(e) => setZoom(Number(e.target.value))}
                 className="flex-1 accent-blue-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
               />
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800"
-                title="Zoom In"
+                aria-label="Zoom in image"
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
-                <ZoomIn size={16} />
+                <ZoomIn size={16} aria-hidden="true" />
               </button>
-              <span className="text-xs font-mono text-slate-400 w-9 text-right">
+              <span className="text-xs font-mono text-slate-400 w-9 text-right" aria-live="polite">
                 {zoom.toFixed(1)}x
               </span>
             </div>
@@ -146,9 +164,10 @@ export default function ImageCropModal({
             <button
               type="button"
               onClick={handleReset}
-              className="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-800 flex items-center gap-1 transition-colors"
+              aria-label="Reset zoom and crop position"
+              className="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-800 flex items-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <RotateCcw size={12} /> Reset
+              <RotateCcw size={12} aria-hidden="true" /> Reset
             </button>
           </div>
 
@@ -158,16 +177,16 @@ export default function ImageCropModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSkip}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 bg-slate-800/90 hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 bg-slate-800/90 hover:bg-slate-800 transition-colors flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
               >
-                <FastForward size={14} /> Skip Crop
+                <FastForward size={14} aria-hidden="true" /> Skip Crop
               </button>
             </div>
 
@@ -175,16 +194,16 @@ export default function ImageCropModal({
               type="button"
               onClick={handleSave}
               disabled={isProcessing}
-              className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {isProcessing ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
                   <span>Processing...</span>
                 </>
               ) : (
                 <>
-                  <Check size={16} />
+                  <Check size={16} aria-hidden="true" />
                   <span>Confirm Crop</span>
                 </>
               )}

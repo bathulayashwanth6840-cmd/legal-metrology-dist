@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Eye, X, ShieldAlert, Check } from 'lucide-react';
 import type { FindingEvidence } from '../types/complaint';
 import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface EvidenceModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export default function EvidenceModal({
   onMarkReviewed,
 }: EvidenceModalProps) {
   const [isReviewed, setIsReviewed] = useState(finding?.reviewedByOfficer ?? false);
+  const modalRef = useFocusTrap({ isOpen, onClose });
 
   if (!isOpen || !finding) return null;
 
@@ -30,20 +32,35 @@ export default function EvidenceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="evidence-modal-title"
+      aria-describedby="evidence-modal-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+        tabIndex={-1}
+      >
         {/* Header */}
         <div className="bg-[var(--color-navy)] text-white p-6 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-900 border border-blue-700 flex items-center justify-center text-blue-300 flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-xl bg-blue-900 border border-blue-700 flex items-center justify-center text-blue-300 flex-shrink-0"
+              aria-hidden="true"
+            >
               <Eye size={20} />
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase tracking-widest text-blue-300 block font-bold">
                 STATUTORY EVIDENCE VIEWER
               </span>
-              <h3 className="text-lg font-black text-white">{finding.fieldLabel}</h3>
-              <p className="text-xs text-blue-200 mt-0.5">
+              <h2 id="evidence-modal-title" className="text-lg font-black text-white">
+                {finding.fieldLabel}
+              </h2>
+              <p id="evidence-modal-desc" className="text-xs text-blue-200 mt-0.5">
                 Rule Reference: <span className="font-mono font-bold text-amber-400">{finding.ruleCode}</span>
               </p>
             </div>
@@ -51,9 +68,10 @@ export default function EvidenceModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            aria-label="Close evidence viewer dialog"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -65,13 +83,14 @@ export default function EvidenceModal({
               <div className="relative w-full h-full max-h-[300px] flex items-center justify-center">
                 <img
                   src={resolveImageUrl(finding.evidenceImageUrl)}
-                  alt="Packaging Evidence"
+                  alt={`Packaging photographic evidence for ${finding.fieldLabel}`}
                   className="w-full h-auto object-contain max-h-[300px]"
                   onError={(e) => handleImageError(e)}
                 />
                 {finding.highlightBox && (
                   <div
                     className="absolute border-2 border-rose-500 bg-rose-500/20 rounded-md pointer-events-none animate-pulse flex items-start justify-start p-1"
+                    aria-hidden="true"
                     style={{
                       left: `${finding.highlightBox.x}%`,
                       top: `${finding.highlightBox.y}%`,
@@ -92,9 +111,11 @@ export default function EvidenceModal({
               </div>
             ) : (
               <div className="text-center p-8 text-slate-400">
-                <ShieldAlert size={32} className="mx-auto mb-2 text-slate-500" />
+                <ShieldAlert size={32} className="mx-auto mb-2 text-slate-500" aria-hidden="true" />
                 <span>Original packaging photographic panel excerpt</span>
-                <span className="block text-[10px] text-slate-500 mt-1 font-mono">Evidence coordinates not directly localized</span>
+                <span className="block text-[10px] text-slate-500 mt-1 font-mono">
+                  Evidence coordinates not directly localized
+                </span>
               </div>
             )}
           </div>
@@ -147,7 +168,8 @@ export default function EvidenceModal({
             <button
               type="button"
               onClick={handleToggleReview}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              aria-pressed={isReviewed}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isReviewed
                   ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -155,12 +177,12 @@ export default function EvidenceModal({
             >
               {isReviewed ? (
                 <>
-                  <Check size={14} className="text-emerald-700" />
+                  <Check size={14} className="text-emerald-700" aria-hidden="true" />
                   <span>✓ Evidence Marked as Reviewed by Officer</span>
                 </>
               ) : (
                 <>
-                  <Eye size={14} />
+                  <Eye size={14} aria-hidden="true" />
                   <span>Mark Evidence Reviewed</span>
                 </>
               )}
@@ -169,7 +191,7 @@ export default function EvidenceModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-[var(--color-navy)] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer"
+              className="px-6 py-2 bg-[var(--color-navy)] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
             >
               Close
             </button>

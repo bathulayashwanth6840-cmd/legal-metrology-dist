@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, X, CheckCircle2, XCircle, RotateCcw, FileCheck } from 'lucide-react';
 import type { ComplaintStatus } from '../types/complaint';
 import { useRole } from '../context/RoleContext';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface VerificationModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ export default function VerificationModal({
   const [actionTaken, setActionTaken] = useState('Formal Statutory Notice issued to distributor and manufacturer under Section 18 / 36.');
   const [additionalNotes] = useState('Laboratory physical verification report #LMR-LAB-2026-44 referenced.');
 
+  const modalRef = useFocusTrap({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,20 +64,35 @@ export default function VerificationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="verification-modal-title"
+      aria-describedby="verification-modal-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+        tabIndex={-1}
+      >
         {/* Modal Header */}
         <div className="bg-[var(--color-navy)] text-white p-6 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-600 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-600 flex items-center justify-center text-emerald-400 flex-shrink-0"
+              aria-hidden="true"
+            >
               <ShieldCheck size={22} />
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 block font-bold">
                 AUTHORIZED STATUTORY ACTION
               </span>
-              <h3 className="text-lg font-black text-white">Official Statutory Verification</h3>
-              <p className="text-xs text-blue-200 mt-0.5">
+              <h2 id="verification-modal-title" className="text-lg font-black text-white">
+                Official Statutory Verification
+              </h2>
+              <p id="verification-modal-desc" className="text-xs text-blue-200 mt-0.5">
                 Case ID: <span className="font-mono font-bold text-amber-400">{complaintId}</span> • Commodity: <span className="text-white font-medium">{productName}</span>
               </p>
             </div>
@@ -82,9 +100,10 @@ export default function VerificationModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            aria-label="Close verification dialog"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -98,18 +117,26 @@ export default function VerificationModal({
 
           {/* Verdict Selection */}
           <div>
-            <label className="font-bold text-slate-800 block mb-2">Select Official Statutory Verdict:</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <span id="verdict-group-label" className="font-bold text-slate-800 block mb-2">
+              Select Official Statutory Verdict:
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="verdict-group-label"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+            >
               <button
                 type="button"
+                role="radio"
+                aria-checked={verdict === 'VERIFIED_VIOLATION'}
                 onClick={() => setVerdict('VERIFIED_VIOLATION')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
                   verdict === 'VERIFIED_VIOLATION'
                     ? 'bg-rose-50 border-rose-500 text-rose-950 ring-2 ring-rose-400/30 font-bold'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <XCircle size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'VERIFIED_VIOLATION' ? 'text-rose-600' : 'text-slate-400'}`} />
+                <XCircle size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'VERIFIED_VIOLATION' ? 'text-rose-600' : 'text-slate-400'}`} aria-hidden="true" />
                 <div>
                   <span className="font-black block text-xs">✓ Verify Finding (Violation)</span>
                   <span className="text-[10px] text-slate-500 block">Confirms breach; moves status to Verified Violation.</span>
@@ -118,14 +145,16 @@ export default function VerificationModal({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={verdict === 'NOT_VERIFIED'}
                 onClick={() => setVerdict('NOT_VERIFIED')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                   verdict === 'NOT_VERIFIED'
                     ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-400/30 font-bold'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <CheckCircle2 size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'NOT_VERIFIED' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <CheckCircle2 size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'NOT_VERIFIED' ? 'text-emerald-600' : 'text-slate-400'}`} aria-hidden="true" />
                 <div>
                   <span className="font-black block text-xs">✕ Mark Not Verified</span>
                   <span className="text-[10px] text-slate-500 block">Packaging verified compliant; rejects violation flag.</span>
@@ -134,14 +163,16 @@ export default function VerificationModal({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={verdict === 'FURTHER_ENQUIRY_REQUIRED'}
                 onClick={() => setVerdict('FURTHER_ENQUIRY_REQUIRED')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
                   verdict === 'FURTHER_ENQUIRY_REQUIRED'
                     ? 'bg-amber-50 border-amber-500 text-amber-950 ring-2 ring-amber-400/30 font-bold'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <RotateCcw size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'FURTHER_ENQUIRY_REQUIRED' ? 'text-amber-600' : 'text-slate-400'}`} />
+                <RotateCcw size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'FURTHER_ENQUIRY_REQUIRED' ? 'text-amber-600' : 'text-slate-400'}`} aria-hidden="true" />
                 <div>
                   <span className="font-black block text-xs">↻ Request More Information</span>
                   <span className="text-[10px] text-slate-500 block">Orders further lab test or wholesale vendor audit.</span>
@@ -150,14 +181,16 @@ export default function VerificationModal({
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={verdict === 'ACTION_TAKEN'}
                 onClick={() => setVerdict('ACTION_TAKEN')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   verdict === 'ACTION_TAKEN'
                     ? 'bg-blue-50 border-blue-500 text-blue-950 ring-2 ring-blue-400/30 font-bold'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <FileCheck size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'ACTION_TAKEN' ? 'text-blue-600' : 'text-slate-400'}`} />
+                <FileCheck size={18} className={`flex-shrink-0 mt-0.5 ${verdict === 'ACTION_TAKEN' ? 'text-blue-600' : 'text-slate-400'}`} aria-hidden="true" />
                 <div>
                   <span className="font-black block text-xs">⚡ Record Action Taken</span>
                   <span className="text-[10px] text-slate-500 block">Compounding fine recorded or seizure notice served.</span>
@@ -168,10 +201,14 @@ export default function VerificationModal({
 
           {/* Verification Remarks */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Official Statutory Verification Remarks:</label>
+            <label htmlFor="verify-remarks" className="font-bold text-slate-700 block mb-1">
+              Official Statutory Verification Remarks <span className="text-rose-600">*</span>:
+            </label>
             <textarea
+              id="verify-remarks"
               rows={2}
               required
+              aria-required="true"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="State the official legal grounds and rule analysis..."
@@ -181,8 +218,11 @@ export default function VerificationModal({
 
           {/* Technical Observations */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Physical / Caliper / Measurement Observations:</label>
+            <label htmlFor="verify-observations" className="font-bold text-slate-700 block mb-1">
+              Physical / Caliper / Measurement Observations:
+            </label>
             <textarea
+              id="verify-observations"
               rows={2}
               value={observations}
               onChange={(e) => setObservations(e.target.value)}
@@ -194,8 +234,11 @@ export default function VerificationModal({
           {/* Action Taken */}
           {(verdict === 'ACTION_TAKEN' || verdict === 'VERIFIED_VIOLATION') && (
             <div>
-              <label className="font-bold text-slate-700 block mb-1">Enforcement Action Taken / Notice Details:</label>
+              <label htmlFor="verify-action-taken" className="font-bold text-slate-700 block mb-1">
+                Enforcement Action Taken / Notice Details:
+              </label>
               <input
+                id="verify-action-taken"
                 type="text"
                 value={actionTaken}
                 onChange={(e) => setActionTaken(e.target.value)}
@@ -227,15 +270,15 @@ export default function VerificationModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-5 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             >
-              <ShieldCheck size={16} />
+              <ShieldCheck size={16} aria-hidden="true" />
               <span>Submit Statutory Verdict</span>
             </button>
           </div>

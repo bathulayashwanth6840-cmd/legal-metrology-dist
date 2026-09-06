@@ -2,6 +2,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, RefreshCw, X, Check, RotateCcw, VideoOff } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -121,6 +122,19 @@ export default function CameraCapture({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, facingMode]);
 
+  // Handle closing modal
+  const handleClose = useCallback(() => {
+    stopCurrentStream();
+    if (capturedBlobUrl) {
+      URL.revokeObjectURL(capturedBlobUrl);
+      setCapturedBlobUrl('');
+      setCapturedFile(null);
+    }
+    onClose();
+  }, [capturedBlobUrl, onClose, stopCurrentStream]);
+
+  const modalRef = useFocusTrap({ isOpen, onClose: handleClose });
+
   // Toggle between rear/front cameras
   const toggleCamera = () => {
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
@@ -190,56 +204,64 @@ export default function CameraCapture({
     }
   };
 
-  // Handle closing modal
-  const handleClose = () => {
-    stopCurrentStream();
-    if (capturedBlobUrl) {
-      URL.revokeObjectURL(capturedBlobUrl);
-      setCapturedBlobUrl('');
-      setCapturedFile(null);
-    }
-    onClose();
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="camera-modal-title"
+      aria-describedby="camera-modal-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-slate-900 border border-slate-800 text-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[95vh] focus:outline-none"
+        tabIndex={-1}
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-900/90">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center"
+              aria-hidden="true"
+            >
               <Camera size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base text-slate-100 uppercase tracking-wide">
+              <h2 id="camera-modal-title" className="font-bold text-sm sm:text-base text-slate-100 uppercase tracking-wide">
                 Capture {sideLabel}
-              </h3>
-              <p className="text-xs text-slate-400">Position label text inside the viewfinder</p>
+              </h2>
+              <p id="camera-modal-desc" className="text-xs text-slate-400">
+                Position label text inside the viewfinder
+              </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            aria-label="Close camera"
-            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Close camera dialog"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         {/* Camera / Viewfinder Body */}
         <div className="relative w-full aspect-[3/4] sm:aspect-[4/3] bg-black flex items-center justify-center overflow-hidden">
           {errorMsg ? (
-            <div className="p-6 text-center max-w-sm">
-              <div className="w-12 h-12 rounded-full bg-red-900/40 text-red-400 flex items-center justify-center mx-auto mb-3">
+            <div className="p-6 text-center max-w-sm" role="alert">
+              <div
+                className="w-12 h-12 rounded-full bg-red-900/40 text-red-400 flex items-center justify-center mx-auto mb-3"
+                aria-hidden="true"
+              >
                 <VideoOff size={24} />
               </div>
               <p className="text-sm font-semibold text-red-300 mb-2">Camera Unavailable</p>
               <p className="text-xs text-slate-300 mb-4 leading-relaxed">{errorMsg}</p>
               <button
+                type="button"
                 onClick={handleClose}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-200 transition-colors"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 Close & Use Upload Instead
               </button>
@@ -249,11 +271,14 @@ export default function CameraCapture({
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <img
                 src={capturedBlobUrl}
-                alt="Captured product label"
+                alt="Captured product label preview"
                 className="w-full h-full object-contain"
               />
-              <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur border border-slate-700/60 text-green-400 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow">
-                <Check size={13} /> Photo Captured
+              <div
+                className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur border border-slate-700/60 text-green-400 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow"
+                role="status"
+              >
+                <Check size={13} aria-hidden="true" /> Photo Captured
               </div>
             </div>
           ) : (
@@ -264,11 +289,15 @@ export default function CameraCapture({
                 autoPlay
                 playsInline
                 muted
+                aria-label="Live camera feed"
                 className="w-full h-full object-cover"
               />
 
               {/* Viewfinder Guideline Box */}
-              <div className="absolute inset-6 sm:inset-10 border-2 border-dashed border-white/40 rounded-xl pointer-events-none flex flex-col justify-between p-3">
+              <div
+                className="absolute inset-6 sm:inset-10 border-2 border-dashed border-white/40 rounded-xl pointer-events-none flex flex-col justify-between p-3"
+                aria-hidden="true"
+              >
                 <div className="flex justify-between">
                   <div className="w-4 h-4 border-t-2 border-l-2 border-blue-400" />
                   <div className="w-4 h-4 border-t-2 border-r-2 border-blue-400" />
@@ -289,17 +318,18 @@ export default function CameraCapture({
                 <button
                   type="button"
                   onClick={toggleCamera}
+                  aria-label="Switch front and back camera"
                   title="Switch front/back camera"
-                  className="absolute top-3 right-3 bg-black/60 backdrop-blur text-white p-2.5 rounded-full hover:bg-black/80 transition-colors shadow-lg"
+                  className="absolute top-3 right-3 bg-black/60 backdrop-blur text-white p-2.5 rounded-full hover:bg-black/80 transition-colors shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
-                  <RefreshCw size={18} />
+                  <RefreshCw size={18} aria-hidden="true" />
                 </button>
               )}
             </div>
           )}
 
           {/* Hidden canvas for drawing frame */}
-          <canvas ref={canvasRef} className="hidden" />
+          <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
         </div>
 
         {/* Modal Controls Footer */}
@@ -307,7 +337,7 @@ export default function CameraCapture({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
           >
             Cancel
           </button>
@@ -319,26 +349,29 @@ export default function CameraCapture({
                   <button
                     type="button"
                     onClick={handleRetake}
-                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center gap-1.5"
+                    aria-label="Retake photo"
+                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                   >
-                    <RotateCcw size={15} /> Retake
+                    <RotateCcw size={15} aria-hidden="true" /> Retake
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirm}
                     disabled={isProcessing}
-                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-green-600 hover:bg-green-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-green-600/30"
+                    aria-label="Use captured photo"
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-green-600 hover:bg-green-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-green-600/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
                   >
-                    <Check size={16} /> Use Photo
+                    <Check size={16} aria-hidden="true" /> Use Photo
                   </button>
                 </>
               ) : (
                 <button
                   type="button"
                   onClick={handleCapture}
-                  className="px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30"
+                  aria-label="Capture photo from camera feed"
+                  className="px-6 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
-                  <Camera size={16} /> Capture
+                  <Camera size={16} aria-hidden="true" /> Capture
                 </button>
               )}
             </div>

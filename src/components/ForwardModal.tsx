@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Send, X, AlertTriangle, Building2 } from 'lucide-react';
 import type { ComplaintPriority } from '../types/complaint';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface ForwardModalProps {
   isOpen: boolean;
@@ -50,6 +51,8 @@ export default function ForwardModal({
   const [remarks, setRemarks] = useState('Seized retail sample Form-1 attached. Recommend issuing statutory enquiry notice under Section 18 / 36.');
   const [evidenceSummary, setEvidenceSummary] = useState('2 high-resolution panel photos with OCR bounding box annotations and detected OCR text.');
 
+  const modalRef = useFocusTrap({ isOpen, onClose });
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -66,20 +69,35 @@ export default function ForwardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="forward-modal-title"
+      aria-describedby="forward-modal-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+        tabIndex={-1}
+      >
         {/* Modal Header */}
         <div className="bg-[var(--color-navy)] text-white p-6 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-900 border border-blue-700 flex items-center justify-center text-amber-400 flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-xl bg-blue-900 border border-blue-700 flex items-center justify-center text-amber-400 flex-shrink-0"
+              aria-hidden="true"
+            >
               <Send size={20} />
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase tracking-widest text-blue-300 block font-bold">
                 ENFORCEMENT ESCALATION
               </span>
-              <h3 className="text-lg font-black text-white">Forward for Further Enquiry</h3>
-              <p className="text-xs text-blue-200 mt-0.5">
+              <h2 id="forward-modal-title" className="text-lg font-black text-white">
+                Forward for Further Enquiry
+              </h2>
+              <p id="forward-modal-desc" className="text-xs text-blue-200 mt-0.5">
                 Case ID: <span className="font-mono font-bold text-amber-400">{complaintId}</span>
               </p>
             </div>
@@ -87,16 +105,17 @@ export default function ForwardModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            aria-label="Close forward dialog"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         {/* Modal Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-amber-900">
-            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <span className="font-bold block">Commodity under Investigation:</span>
               <span className="font-medium text-[11px]">{productName}</span>
@@ -105,11 +124,12 @@ export default function ForwardModal({
 
           {/* Department Selection */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
-              <Building2 size={14} className="text-blue-600" />
+            <label htmlFor="forward-target-dept" className="font-bold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+              <Building2 size={14} className="text-blue-600" aria-hidden="true" />
               Target Department & Designated Authority:
             </label>
             <select
+              id="forward-target-dept"
               value={selectedDeptIndex}
               onChange={(e) => setSelectedDeptIndex(Number(e.target.value))}
               className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
@@ -124,14 +144,22 @@ export default function ForwardModal({
 
           {/* Priority */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1.5">Priority Level:</label>
-            <div className="grid grid-cols-3 gap-2">
+            <span id="priority-group-label" className="font-bold text-slate-700 block mb-1.5">
+              Priority Level:
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="priority-group-label"
+              className="grid grid-cols-3 gap-2"
+            >
               {(['High', 'Medium', 'Low'] as ComplaintPriority[]).map((p) => (
                 <button
                   type="button"
                   key={p}
+                  role="radio"
+                  aria-checked={priority === p}
                   onClick={() => setPriority(p)}
-                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                  className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                     priority === p
                       ? p === 'High'
                         ? 'bg-rose-50 border-rose-500 text-rose-800 ring-2 ring-rose-400/30'
@@ -149,10 +177,14 @@ export default function ForwardModal({
 
           {/* Reason for Forwarding */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Reason for Forwarding / Statutory Grounds:</label>
+            <label htmlFor="forward-reason" className="font-bold text-slate-700 block mb-1">
+              Reason for Forwarding / Statutory Grounds <span className="text-rose-600">*</span>:
+            </label>
             <textarea
+              id="forward-reason"
               rows={2}
               required
+              aria-required="true"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Specify the legal reason or statutory ambiguity requiring higher investigation..."
@@ -162,8 +194,11 @@ export default function ForwardModal({
 
           {/* Remarks */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Forwarding Remarks & Inspector Observations:</label>
+            <label htmlFor="forward-remarks" className="font-bold text-slate-700 block mb-1">
+              Forwarding Remarks & Inspector Observations:
+            </label>
             <textarea
+              id="forward-remarks"
               rows={2}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
@@ -174,8 +209,11 @@ export default function ForwardModal({
 
           {/* Evidence Summary */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Evidence Summary Attached:</label>
+            <label htmlFor="forward-evidence-summary" className="font-bold text-slate-700 block mb-1">
+              Evidence Summary Attached:
+            </label>
             <input
+              id="forward-evidence-summary"
               type="text"
               value={evidenceSummary}
               onChange={(e) => setEvidenceSummary(e.target.value)}
@@ -189,15 +227,15 @@ export default function ForwardModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-5 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-blue-800 hover:bg-blue-900 text-white font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              className="px-6 py-2.5 bg-blue-800 hover:bg-blue-900 text-white font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
             >
-              <Send size={14} />
+              <Send size={14} aria-hidden="true" />
               <span>Forward Case</span>
             </button>
           </div>

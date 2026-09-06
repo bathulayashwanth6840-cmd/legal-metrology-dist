@@ -55,7 +55,7 @@ export default function TrackComplaintPage() {
       <div className="bg-[var(--color-navy)] text-white pt-8 pb-14 px-4 sm:px-8 shadow-md">
         <div className="max-w-4xl mx-auto text-center space-y-3">
           <div className="inline-flex items-center gap-2 bg-blue-900/60 border border-blue-700/60 px-3.5 py-1 rounded-full text-[10px] font-extrabold tracking-widest text-blue-300 uppercase">
-            <ShieldCheck size={14} className="text-amber-400" />
+            <ShieldCheck size={14} className="text-amber-400" aria-hidden="true" />
             <span>NATIONAL LEGAL METROLOGY CONSUMER GRIEVANCE TRACKER</span>
           </div>
 
@@ -76,8 +76,12 @@ export default function TrackComplaintPage() {
               className="flex flex-col sm:flex-row items-center gap-2 bg-white/10 p-2 rounded-2xl border border-white/20 backdrop-blur-xs"
             >
               <div className="relative flex-1 w-full">
-                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <label htmlFor="complaint-id-search-input" className="sr-only">
+                  Enter Legal Metrology Complaint ID (e.g. LM-2026-XXXXXX)
+                </label>
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <input
+                  id="complaint-id-search-input"
                   type="text"
                   placeholder="Enter Complaint ID (e.g. LM-2026-XXXXXX)..."
                   value={complaintIdInput}
@@ -88,7 +92,8 @@ export default function TrackComplaintPage() {
 
               <button
                 type="submit"
-                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                aria-label="Track Complaint Status"
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Track Status
               </button>
@@ -98,13 +103,16 @@ export default function TrackComplaintPage() {
       </div>
 
       {/* ── Search Results View ────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-6 space-y-6 w-full">
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-6 space-y-6 w-full" aria-live="polite">
         {hasSearched && !result && (
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-2xs text-center space-y-3 animate-in fade-in duration-150">
-            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+          <div
+            role="alert"
+            className="bg-white rounded-3xl p-8 border border-slate-200 shadow-2xs text-center space-y-3 animate-in fade-in duration-150"
+          >
+            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto" aria-hidden="true">
               <AlertCircle size={28} />
             </div>
-            <h3 className="text-base font-black text-slate-900">Complaint ID Not Found</h3>
+            <h2 className="text-base font-black text-slate-900">Complaint ID Not Found</h2>
             <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
               No statutory complaint was found with ID <span className="font-mono font-bold text-slate-800">"{complaintIdInput}"</span>. Please check the Complaint ID on your acknowledgement receipt and try again.
             </p>
@@ -135,7 +143,7 @@ export default function TrackComplaintPage() {
                     STATUS_COLOR_MAP[result.currentStatus as ComplaintStatus]?.badge || 'bg-slate-100'
                   }`}
                 >
-                  <span className="text-xl">
+                  <span className="text-xl" aria-hidden="true">
                     {STATUS_COLOR_MAP[result.currentStatus as ComplaintStatus]?.icon || '📝'}
                   </span>
                   <div>
@@ -150,7 +158,7 @@ export default function TrackComplaintPage() {
               {/* Public Friendly Official Message */}
               <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl text-blue-950 space-y-1">
                 <span className="font-bold text-xs flex items-center gap-1.5 text-blue-900">
-                  <ShieldCheck size={16} className="text-blue-600" />
+                  <ShieldCheck size={16} className="text-blue-600" aria-hidden="true" />
                   Official Grievance Cell Update:
                 </span>
                 <p className="text-xs leading-relaxed font-medium">
@@ -164,17 +172,17 @@ export default function TrackComplaintPage() {
               {/* Citizen Progress Timeline */}
               <div className="space-y-4 pt-2">
                 <h3 className="font-black text-slate-900 text-sm flex items-center gap-2">
-                  <Clock size={16} className="text-blue-600" />
+                  <Clock size={16} className="text-blue-600" aria-hidden="true" />
                   Statutory Progression Stages
                 </h3>
 
-                <div className="space-y-4 pt-1">
+                <div className="space-y-4 pt-1" role="list" aria-label="Investigation progress milestones">
                   {result.timeline.map((step: any, idx: number) => {
                     const isDone = step.isCompleted;
                     const isCurrent = step.isCurrent;
 
                     return (
-                      <div key={idx} className="flex items-start gap-3.5">
+                      <div key={idx} className="flex items-start gap-3.5" role="listitem">
                         <div className="flex flex-col items-center flex-shrink-0">
                           <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors ${
@@ -184,6 +192,7 @@ export default function TrackComplaintPage() {
                                 ? 'bg-amber-500 text-white ring-4 ring-amber-100 animate-pulse'
                                 : 'bg-slate-200 text-slate-500'
                             }`}
+                            aria-label={`Stage ${idx + 1}: ${step.stageName}, ${isDone ? 'Completed' : isCurrent ? 'In Progress' : 'Pending'}`}
                           >
                             {isDone ? '✓' : isCurrent ? '●' : idx + 1}
                           </div>
@@ -192,6 +201,7 @@ export default function TrackComplaintPage() {
                               className={`w-0.5 h-10 my-1 ${
                                 isDone ? 'bg-emerald-400' : 'bg-slate-200'
                               }`}
+                              aria-hidden="true"
                             />
                           )}
                         </div>
@@ -227,10 +237,10 @@ export default function TrackComplaintPage() {
                 <span>National Consumer Helpline (NCH): 1915 • Toll Free</span>
                 <Link
                   to={`/complaints/${result.id}`}
-                  className="font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 text-xs"
+                  className="font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                 >
                   <span>Authorized Officer View</span>
-                  <ArrowRight size={12} />
+                  <ArrowRight size={12} aria-hidden="true" />
                 </Link>
               </div>
             </div>

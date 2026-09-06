@@ -2,16 +2,109 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Trash2, History as HistoryIcon, AlertTriangle, ShieldCheck,
-  CheckSquare, Square, MinusSquare, Check, X, AlertCircle, Loader2,
+  CheckSquare, Square, MinusSquare, Check, AlertCircle, Loader2,
   Search
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
+import { useFocusTrap } from '../utils/useFocusTrap';
 
 interface DeleteModalState {
   isOpen: boolean;
   targetIds: number[];
   isSingle: boolean;
+}
+
+function DeleteConfirmDialog({
+  isOpen,
+  isSingle,
+  targetCount,
+  isDeleting,
+  onClose,
+  onConfirm,
+  t,
+}: {
+  isOpen: boolean;
+  isSingle: boolean;
+  targetCount: number;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  t: (key: string) => string;
+}) {
+  const modalRef = useFocusTrap({ isOpen, onClose, closeOnEscape: !isDeleting });
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-confirm-title"
+      aria-describedby="delete-confirm-desc"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+        tabIndex={-1}
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0"
+            aria-hidden="true"
+          >
+            <AlertTriangle size={22} />
+          </div>
+          <div>
+            <h2 id="delete-confirm-title" className="text-base font-black text-gray-900">
+              {isSingle
+                ? t('history.confirm_single_delete_title')
+                : t('history.confirm_delete_title')}
+            </h2>
+            <p id="delete-confirm-desc" className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+              {isSingle
+                ? t('history.confirm_single_delete_desc')
+                : t('history.confirm_delete_desc')}
+            </p>
+            <div className="mt-2 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg inline-block border border-rose-100">
+              {targetCount} {targetCount === 1 ? 'scan' : 'scans'} will be permanently deleted.
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Buttons */}
+        <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          >
+            {t('history.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                <span>{t('history.deleting')}</span>
+              </>
+            ) : (
+              <>
+                <Trash2 size={14} aria-hidden="true" />
+                <span>{t('history.delete')}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HistoryPage() {
@@ -110,10 +203,10 @@ export default function HistoryPage() {
     });
   };
 
-  // ── Execute Deletion ────────────────────────────────────────────────────────
+  // ── Execute Delete via Backend ──────────────────────────────────────────────
   const executeDelete = async () => {
-    const idsToDelete = deleteModal.targetIds;
-    if (idsToDelete.length === 0) return;
+    const ids = deleteModal.targetIds;
+    if (ids.length === 0) return;
 
     setIsDeleting(true);
     try {
@@ -125,257 +218,266 @@ export default function HistoryPage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // First try backend batch delete endpoint
-      const batchResp = await fetch(`${apiUrl}/api/scans/batch-delete`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ scan_ids: idsToDelete }),
-      });
+      if (deleteModal.isSingle && ids.length === 1) {
+        const res = await fetch(`${apiUrl}/api/scans/${ids[0]}`, {
+          method: 'DELETE',
+          headers,
+        });
 
-      if (batchResp.ok) {
-        const result = await batchResp.json();
-        const deletedIds: number[] = result.deleted_ids || idsToDelete;
-        setScans((prev) => prev.filter((s) => !deletedIds.includes(s.id)));
-        setSelectedIds((prev) => prev.filter((id) => !deletedIds.includes(id)));
+        if (!res.ok) {
+          throw new Error('Failed to delete scan from server');
+        }
 
-        const msg = deletedIds.length === 1
-          ? t('history.single_deleted_success')
-          : `${deletedIds.length} ${t('history.deleted_success')}`;
-        showToast(msg, 'success');
+        setScans((prev) => prev.filter((s) => s.id !== ids[0]));
+        setSelectedIds((prev) => prev.filter((i) => i !== ids[0]));
+        showToast(t('history.single_deleted_success'), 'success');
       } else {
-        // Fallback: delete sequentially if batch endpoint fails
-        let successCount = 0;
-        const failedIds: number[] = [];
+        const res = await fetch(`${apiUrl}/api/scans/batch-delete`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ scan_ids: ids }),
+        });
 
-        for (const id of idsToDelete) {
-          try {
-            const singleResp = await fetch(`${apiUrl}/api/scans/${id}`, {
-              method: 'DELETE',
-              headers,
-            });
-            if (singleResp.ok || singleResp.status === 204) {
-              successCount++;
-            } else {
-              failedIds.push(id);
-            }
-          } catch {
-            failedIds.push(id);
-          }
+        if (!res.ok) {
+          throw new Error('Batch delete request failed');
         }
 
-        const successfulIds = idsToDelete.filter((id) => !failedIds.includes(id));
-        setScans((prev) => prev.filter((s) => !successfulIds.includes(s.id)));
-        setSelectedIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+        const data = await res.json();
+        const deletedIds: number[] = data.deleted_ids || ids;
 
-        if (successCount > 0) {
-          const msg = successCount === 1
-            ? t('history.single_deleted_success')
-            : `${successCount} ${t('history.deleted_success')}`;
-          showToast(msg, 'success');
-        } else {
-          showToast('Failed to delete selected scans.', 'error');
-        }
+        setScans((prev) => prev.filter((s) => !deletedIds.includes(s.id)));
+        setSelectedIds([]);
+        showToast(`${deletedIds.length} ${t('history.deleted_success')}`, 'success');
       }
+
+      closeDeleteModal();
     } catch (err: any) {
-      console.error('Deletion error:', err);
-      showToast('An error occurred during deletion.', 'error');
+      console.error('Delete error:', err);
+      showToast(err.message || 'Error occurred while deleting scan(s)', 'error');
     } finally {
       setIsDeleting(false);
-      setDeleteModal({
-        isOpen: false,
-        targetIds: [],
-        isSingle: false,
-      });
     }
   };
 
-  const isAllSelected = scans.length > 0 && selectedIds.length === scans.length;
-  const isPartiallySelected = selectedIds.length > 0 && selectedIds.length < scans.length;
-
-  const filteredScans = scans.filter((s) => {
-    const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
-    const prodName = (s.extracted_fields?.semantic_fields?.product_name || s.extracted_fields?.product_name || `Scan #${s.id}`).toLowerCase();
-    const matchesSearch = searchQuery.trim() === '' || prodName.includes(searchQuery.toLowerCase()) || String(s.id).includes(searchQuery);
-    return matchesStatus && matchesSearch;
+  // Filter scans based on search query & status
+  const filteredScans = scans.filter((scan) => {
+    const productName = (scan.extracted_fields?.product_name || scan.extracted_fields?.brand_name || 'Packaged Commodity').toLowerCase();
+    const matchesSearch = productName.includes(searchQuery.toLowerCase()) || String(scan.id).includes(searchQuery);
+    const matchesStatus = statusFilter === 'ALL' ? true : scan.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
+  const isAllSelected = filteredScans.length > 0 && selectedIds.length === filteredScans.length;
+  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < filteredScans.length;
+
   return (
-    <div className="p-4 sm:p-6 pb-24 max-w-6xl mx-auto select-none relative">
-      {/* ── Toast Notification Banner ────────────────────────────────────── */}
+    <div className="p-4 sm:p-6 pb-24 max-w-6xl mx-auto select-none">
+      {/* ── Toast Notification Announcement ─────────────────────────────── */}
       {toastMessage && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
-          toastMessage.type === 'success'
-            ? 'bg-emerald-900 text-white border-emerald-700 shadow-emerald-950/20'
-            : 'bg-rose-900 text-white border-rose-700 shadow-rose-950/20'
-        }`}>
-          {toastMessage.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-          <span>{toastMessage.text}</span>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-white/70 hover:text-white"
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200"
+        >
+          <div
+            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl border font-bold text-xs ${
+              toastMessage.type === 'success'
+                ? 'bg-emerald-950 text-emerald-200 border-emerald-700'
+                : 'bg-rose-950 text-rose-200 border-rose-700'
+            }`}
           >
-            <X size={14} />
-          </button>
+            {toastMessage.type === 'success' ? (
+              <Check size={16} className="text-emerald-400" aria-hidden="true" />
+            ) : (
+              <AlertCircle size={16} className="text-rose-400" aria-hidden="true" />
+            )}
+            <span>{toastMessage.text}</span>
+          </div>
         </div>
       )}
 
-      {/* ── Header & Multi-Select Action Bar ──────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
+          <div
+            className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center"
+            aria-hidden="true"
+          >
             <HistoryIcon size={22} />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">{t('history.title')}</h2>
-            <p className="text-xs text-gray-500 font-medium">Recorded Legal Metrology Inspections</p>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight">
+              {t('history.title')}
+            </h1>
+            <p className="text-xs text-gray-500 font-medium">
+              {scans.length} total packaging inspections recorded
+            </p>
           </div>
         </div>
 
-        {/* Action Controls for Batch Selection */}
+        {/* Batch Delete Action Trigger */}
+        {selectedIds.length > 0 && (
+          <button
+            type="button"
+            onClick={openBatchDeleteModal}
+            aria-label={`Delete ${selectedIds.length} selected scans`}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-sm transition-all self-start sm:self-auto animate-in fade-in duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+          >
+            <Trash2 size={15} aria-hidden="true" />
+            <span>{t('history.delete_selected')} ({selectedIds.length})</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Filter & Search Toolbar ───────────────────────────────────────── */}
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200 shadow-2xs mb-6 space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <label htmlFor="history-search" className="sr-only">
+              Search by product name or inspection ID
+            </label>
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <input
+              id="history-search"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by product name or ID..."
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-navy)] font-medium"
+            />
+          </div>
+
+          {/* Status Filter Buttons */}
+          <div
+            role="group"
+            aria-label="Filter scans by compliance status"
+            className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0"
+          >
+            {[
+              { key: 'ALL', label: 'All' },
+              { key: 'compliant', label: 'Compliant' },
+              { key: 'needs_review', label: 'Review' },
+              { key: 'non_compliant', label: 'Violation' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setStatusFilter(f.key as any)}
+                aria-pressed={statusFilter === f.key}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  statusFilter === f.key
+                    ? 'bg-[var(--color-navy)] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Multi-Select Header Bar */}
         {scans.length > 0 && (
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Select All Toggle Button */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-500">
             <button
               type="button"
               onClick={toggleSelectAll}
-              className="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs transition-colors"
+              aria-label={isAllSelected ? 'Deselect all scans' : 'Select all scans'}
+              className="flex items-center gap-2 font-bold hover:text-gray-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               {isAllSelected ? (
-                <CheckSquare size={16} className="text-blue-600" />
-              ) : isPartiallySelected ? (
-                <MinusSquare size={16} className="text-blue-600" />
+                <CheckSquare size={16} className="text-blue-600" aria-hidden="true" />
+              ) : isIndeterminate ? (
+                <MinusSquare size={16} className="text-blue-600" aria-hidden="true" />
               ) : (
-                <Square size={16} className="text-gray-400" />
+                <Square size={16} className="text-gray-400" aria-hidden="true" />
               )}
-              <span>
-                {isAllSelected ? t('history.deselect_all') : t('history.select_all')}
-              </span>
-              <span className="text-[11px] text-gray-400 font-mono">
-                ({selectedIds.length}/{scans.length})
-              </span>
+              <span>{isAllSelected ? t('history.deselect_all') : t('history.select_all')}</span>
             </button>
 
-            {/* Delete Selected Button */}
-            {selectedIds.length > 0 && (
-              <button
-                type="button"
-                onClick={openBatchDeleteModal}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all animate-in fade-in zoom-in-95 duration-150"
-              >
-                <Trash2 size={15} />
-                <span>{t('history.delete_selected')} ({selectedIds.length})</span>
-              </button>
-            )}
+            <span>
+              Showing {filteredScans.length} of {scans.length} records
+            </span>
           </div>
         )}
       </div>
 
-      {/* ── Search & Filter Controls ──────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search product name, ID or keyword..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 text-xs bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {(['ALL', 'compliant', 'needs_review', 'non_compliant'] as const).map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors whitespace-nowrap cursor-pointer ${
-                statusFilter === st
-                  ? 'bg-blue-900 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {st === 'ALL' ? 'All' : st.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Content Grid ─────────────────────────────────────────────────── */}
+      {/* ── Scan Grid ────────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-28 bg-gray-200 rounded-xl animate-pulse"></div>
-          ))}
+        <div className="flex items-center justify-center py-20 text-gray-400" role="status">
+          <Loader2 className="animate-spin text-blue-600" size={32} aria-hidden="true" />
+          <span className="sr-only">Loading inspections...</span>
         </div>
       ) : filteredScans.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-2xs">
-          <HistoryIcon size={40} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm font-medium text-gray-500 max-w-sm mx-auto">
-            {searchQuery || statusFilter !== 'ALL'
-              ? 'No matching inspection records found for the specified filters.'
-              : t('history.empty')}
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-2xs">
+          <HistoryIcon size={40} className="mx-auto text-gray-300 mb-3" aria-hidden="true" />
+          <h2 className="text-base font-bold text-gray-700">No inspections found</h2>
+          <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+            {searchQuery ? 'Try clearing your search filters' : t('history.empty')}
           </p>
-          <Link
-            to="/scan"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-navy)] text-white text-xs font-bold rounded-lg shadow-sm hover:bg-blue-900 transition-colors"
-          >
-            Start New Scan
-          </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredScans.map((scan) => {
             const isSelected = selectedIds.includes(scan.id);
-            const scoreObj = scan.compliance_score || scan.extracted_fields?.compliance_score;
-            const score = scoreObj?.score;
-            const productName = scan.extracted_fields?.semantic_fields?.product_name || `Scan #${scan.id}`;
+            const rawImg = scan.images?.[0] || scan.preview_image || scan.image_url;
+            const previewImg = rawImg ? resolveImageUrl(rawImg) : null;
+            const productName = scan.extracted_fields?.product_name || scan.extracted_fields?.brand_name || 'Packaged Commodity';
+            const score = scan.compliance_score?.score ?? scan.extracted_fields?.compliance_score?.score;
 
             return (
               <div
                 key={scan.id}
-                className={`bg-white rounded-xl shadow-2xs border transition-all relative group flex overflow-hidden ${
-                  isSelected
-                    ? 'border-blue-500 ring-2 ring-blue-300/60 bg-blue-50/20 shadow-sm'
-                    : 'border-gray-200 hover:shadow-md hover:border-blue-300'
+                className={`relative group bg-white rounded-2xl border transition-all shadow-2xs hover:shadow-md overflow-hidden ${
+                  isSelected ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                {/* Checkbox Selector (stops navigation) */}
-                <div
+                {/* Select Checkbox Button */}
+                <button
+                  type="button"
                   onClick={(e) => toggleSelectScan(e, scan.id)}
-                  className="p-3.5 pr-0 flex items-center justify-center cursor-pointer select-none"
-                  title={isSelected ? 'Deselect scan' : 'Select scan'}
+                  role="checkbox"
+                  aria-checked={isSelected}
+                  aria-label={`Select ${productName} scan`}
+                  className="absolute top-3 left-3 z-10 p-1 bg-white/90 backdrop-blur rounded-lg border border-gray-200 shadow-sm text-gray-600 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
-                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'border-gray-300 bg-white hover:border-blue-400'
-                  }`}>
-                    {isSelected && <Check size={14} strokeWidth={3} />}
-                  </div>
-                </div>
+                  {isSelected ? (
+                    <CheckSquare size={16} className="text-blue-600" aria-hidden="true" />
+                  ) : (
+                    <Square size={16} aria-hidden="true" />
+                  )}
+                </button>
 
-                {/* Clickable Card Area linking to Scan Detail */}
                 <Link
                   to={`/scan/${scan.id}`}
-                  className="flex-1 p-3.5 pl-3 flex gap-3.5 min-w-0"
+                  aria-label={`View scan details for ${productName}`}
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
-                  {/* Thumbnail */}
-                  <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
-                    <img
-                      src={resolveImageUrl(scan.image_path, apiUrl)}
-                      alt="Scan thumbnail"
-                      className="w-full h-full object-cover"
-                      onError={(e) => handleImageError(e)}
-                    />
+                  {/* Thumbnail / Header */}
+                  <div className="h-36 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                    {previewImg ? (
+                      <img
+                        src={previewImg}
+                        alt={`Scan preview of ${productName}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => handleImageError(e)}
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-xs flex flex-col items-center gap-1">
+                        <HistoryIcon size={24} aria-hidden="true" />
+                        <span>No Preview Image</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
                   </div>
 
-                  {/* Details */}
-                  <div className="flex-grow flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex justify-between items-start mb-1 gap-2">
-                        <span className="text-[11px] text-gray-500 font-medium">
-                          {new Date(scan.created_at).toLocaleDateString()}
+                  {/* Body Content */}
+                  <div className="p-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono text-[11px] text-gray-500 font-semibold">
+                          ID: #{scan.id}
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           scan.status === 'compliant' ? 'bg-emerald-100 text-emerald-800' :
@@ -401,11 +503,11 @@ export default function HistoryPage() {
                         <span className="text-[11px] text-gray-500 flex items-center gap-1">
                           {scan.violations && scan.violations.length > 0 ? (
                             <span className="text-rose-600 font-semibold flex items-center gap-0.5">
-                              <AlertTriangle size={12} /> {scan.violations.length} {t('history.violations')}
+                              <AlertTriangle size={12} aria-hidden="true" /> {scan.violations.length} {t('history.violations')}
                             </span>
                           ) : (
                             <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
-                              <ShieldCheck size={12} /> Compliant
+                              <ShieldCheck size={12} aria-hidden="true" /> Compliant
                             </span>
                           )}
                         </span>
@@ -415,10 +517,11 @@ export default function HistoryPage() {
                       <button
                         type="button"
                         onClick={(e) => openSingleDeleteModal(e, scan.id)}
-                        className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                        aria-label={`Delete scan record ${productName}`}
+                        className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                         title="Delete Scan"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={15} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -430,62 +533,15 @@ export default function HistoryPage() {
       )}
 
       {/* ── Confirmation Modal ───────────────────────────────────────────── */}
-      {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle size={22} />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-gray-900">
-                  {deleteModal.isSingle
-                    ? t('history.confirm_single_delete_title')
-                    : t('history.confirm_delete_title')}
-                </h3>
-                <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  {deleteModal.isSingle
-                    ? t('history.confirm_single_delete_desc')
-                    : t('history.confirm_delete_desc')}
-                </p>
-                <div className="mt-2 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg inline-block border border-rose-100">
-                  {deleteModal.targetIds.length} {deleteModal.targetIds.length === 1 ? 'scan' : 'scans'} will be permanently deleted.
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Buttons */}
-            <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={closeDeleteModal}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors disabled:opacity-50"
-              >
-                {t('history.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={executeDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>{t('history.deleting')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={14} />
-                    <span>{t('history.delete')}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmDialog
+        isOpen={deleteModal.isOpen}
+        isSingle={deleteModal.isSingle}
+        targetCount={deleteModal.targetIds.length}
+        isDeleting={isDeleting}
+        onClose={closeDeleteModal}
+        onConfirm={executeDelete}
+        t={t}
+      />
     </div>
   );
 }

@@ -25,6 +25,21 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ── Universal Accessible Focus Indicators ─────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+html.dark :focus-visible {
+  outline: 2px solid #fbbf24 !important;
+  outline-offset: 2px !important;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* ── Global Dark Mode Overrides ────────────────────────────────────────────── */
 html.dark body,
 body.dark {
