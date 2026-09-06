@@ -353,19 +353,19 @@ export default function AnalyticsPage() {
                   placeholder="Search product or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="compliant">Compliant Only</option>
-                <option value="needs_review">Needs Review</option>
-                <option value="non_compliant">Non-Compliant</option>
+                <option value="ALL" className="bg-white text-slate-900">All Statuses</option>
+                <option value="compliant" className="bg-white text-slate-900">Compliant Only</option>
+                <option value="needs_review" className="bg-white text-slate-900">Needs Review</option>
+                <option value="non_compliant" className="bg-white text-slate-900">Non-Compliant</option>
               </select>
             </div>
           </div>

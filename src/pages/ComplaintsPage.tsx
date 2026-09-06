@@ -325,7 +325,7 @@ export default function ComplaintsPage() {
               placeholder="Search by Complaint ID (e.g. LM-2026-XXXXXX), Product, Inspection #, or Location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
 
@@ -334,29 +334,29 @@ export default function ComplaintsPage() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="ALL">All Statuses ({complaints.length})</option>
-              <option value="Submitted">Submitted ({stats.submitted})</option>
-              <option value="Under Review">Under Review ({stats.underReview})</option>
-              <option value="Further Enquiry">Further Enquiry ({stats.furtherEnquiry})</option>
-              <option value="Awaiting Verification">Awaiting Verification ({stats.awaitingVerif})</option>
-              <option value="Verified Violation">Verified Violation ({stats.verifiedViolation})</option>
-              <option value="Not Verified">Not Verified ({stats.notVerified})</option>
-              <option value="Action Taken">Action Taken ({stats.actionTaken})</option>
-              <option value="Closed">Closed ({stats.closed})</option>
+              <option value="ALL" className="bg-white text-slate-900">All Statuses ({complaints.length})</option>
+              <option value="Submitted" className="bg-white text-slate-900">Submitted ({stats.submitted})</option>
+              <option value="Under Review" className="bg-white text-slate-900">Under Review ({stats.underReview})</option>
+              <option value="Further Enquiry" className="bg-white text-slate-900">Further Enquiry ({stats.furtherEnquiry})</option>
+              <option value="Awaiting Verification" className="bg-white text-slate-900">Awaiting Verification ({stats.awaitingVerif})</option>
+              <option value="Verified Violation" className="bg-white text-slate-900">Verified Violation ({stats.verifiedViolation})</option>
+              <option value="Not Verified" className="bg-white text-slate-900">Not Verified ({stats.notVerified})</option>
+              <option value="Action Taken" className="bg-white text-slate-900">Action Taken ({stats.actionTaken})</option>
+              <option value="Closed" className="bg-white text-slate-900">Closed ({stats.closed})</option>
             </select>
 
             {/* Priority Filter */}
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="ALL">All Priorities</option>
-              <option value="High">🔴 High Priority</option>
-              <option value="Medium">🟡 Medium Priority</option>
-              <option value="Low">🟢 Low Priority</option>
+              <option value="ALL" className="bg-white text-slate-900">All Priorities</option>
+              <option value="High" className="bg-white text-slate-900">🔴 High Priority</option>
+              <option value="Medium" className="bg-white text-slate-900">🟡 Medium Priority</option>
+              <option value="Low" className="bg-white text-slate-900">🟢 Low Priority</option>
             </select>
 
             {(selectedStatus !== 'ALL' || selectedPriority !== 'ALL' || searchQuery) && (

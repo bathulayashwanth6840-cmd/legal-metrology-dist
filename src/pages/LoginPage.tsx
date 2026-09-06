@@ -305,9 +305,9 @@ export default function LoginPage() {
                   onChange={(e) => setSelectedRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 bg-slate-900/80 border border-blue-500/40 rounded-xl text-xs text-white focus:ring-2 focus:ring-amber-400 focus:outline-none"
                 >
-                  <option value="inspector">Legal Metrology Officer (#LM-204)</option>
-                  <option value="admin">Administrator (Central Directorate)</option>
-                  <option value="citizen">Citizen Consumer (Public View)</option>
+                  <option value="inspector" className="bg-slate-900 text-white">Legal Metrology Officer (#LM-204)</option>
+                  <option value="admin" className="bg-slate-900 text-white">Administrator (Central Directorate)</option>
+                  <option value="citizen" className="bg-slate-900 text-white">Citizen Consumer (Public View)</option>
                 </select>
               </div>
 

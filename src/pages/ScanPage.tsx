@@ -2863,7 +2863,7 @@ export default function ScanPage() {
                       placeholder="Enter official remarks, seized sample batch details, or market location notes..."
                       value={officerNotes}
                       onChange={(e) => setOfficerNotes(e.target.value)}
-                      className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 

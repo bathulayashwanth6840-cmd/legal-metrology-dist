@@ -179,7 +179,7 @@ export default function NewComplaintModal({
                 value={inspectionId}
                 onChange={(e) => setInspectionId(e.target.value)}
                 placeholder="e.g. INS-1024"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono font-bold text-slate-800"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono font-bold text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -191,11 +191,11 @@ export default function NewComplaintModal({
                 id="complaint-priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as ComplaintPriority)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="High">🔴 High Priority (48h Action)</option>
-                <option value="Medium">🟡 Medium Priority (7d Review)</option>
-                <option value="Low">🟢 Low Priority (15d Standard)</option>
+                <option value="High" className="bg-white text-slate-900">🔴 High Priority (48h Action)</option>
+                <option value="Medium" className="bg-white text-slate-900">🟡 Medium Priority (7d Review)</option>
+                <option value="Low" className="bg-white text-slate-900">🟢 Low Priority (15d Standard)</option>
               </select>
             </div>
           </div>
@@ -220,7 +220,7 @@ export default function NewComplaintModal({
                     if (errorMessage) setErrorMessage('');
                   }}
                   placeholder="e.g. Haldiram's Nagpur Bhujia Sev 400g"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -234,7 +234,7 @@ export default function NewComplaintModal({
                   value={brand}
                   onChange={(e) => setBrand(e.target.value)}
                   placeholder="e.g. Haldiram's"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -248,7 +248,7 @@ export default function NewComplaintModal({
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="e.g. Packaged Food, Cosmetics, Detergents"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -262,7 +262,7 @@ export default function NewComplaintModal({
                   value={mrp}
                   onChange={(e) => setMrp(e.target.value)}
                   placeholder="e.g. ₹140.00"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -276,7 +276,7 @@ export default function NewComplaintModal({
                   value={netQuantity}
                   onChange={(e) => setNetQuantity(e.target.value)}
                   placeholder="e.g. 400 g / 1 Litre"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-mono font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -290,7 +290,7 @@ export default function NewComplaintModal({
                   value={manufacturerName}
                   onChange={(e) => setManufacturerName(e.target.value)}
                   placeholder="Manufacturer name"
-                  className="w-full p-2 rounded-xl border border-slate-200 bg-slate-50 mb-1.5"
+                  className="w-full p-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1.5"
                 />
                 <input
                   id="complaint-mfg-address"
@@ -299,7 +299,7 @@ export default function NewComplaintModal({
                   onChange={(e) => setManufacturerAddress(e.target.value)}
                   aria-label="Manufacturer complete physical address"
                   placeholder="Complete physical address with PIN code"
-                  className="w-full p-2 rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full p-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function NewComplaintModal({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Retail Store Counter #4, Sector 18, Noida"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -334,7 +334,7 @@ export default function NewComplaintModal({
                   value={violationDesc}
                   onChange={(e) => setViolationDesc(e.target.value)}
                   placeholder="Describe non-compliance (e.g., dual MRP sticker, missing consumer care helpline, smudged net weight)..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-900 placeholder:text-slate-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>

@@ -135,7 +135,7 @@ export default function ForwardModal({
               className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900"
             >
               {DEPARTMENTS.map((d, idx) => (
-                <option key={idx} value={idx}>
+                <option key={idx} value={idx} className="bg-white text-slate-900">
                   {d.authority} — {d.dept}
                 </option>
               ))}
@@ -188,7 +188,7 @@ export default function ForwardModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Specify the legal reason or statutory ambiguity requiring higher investigation..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -203,7 +203,7 @@ export default function ForwardModal({
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Add specific instructions for the recipient authority..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -218,7 +218,7 @@ export default function ForwardModal({
               value={evidenceSummary}
               onChange={(e) => setEvidenceSummary(e.target.value)}
               placeholder="List photos, lab receipts, sample Form-1..."
-              className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

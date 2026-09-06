@@ -12,7 +12,11 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -23,6 +27,25 @@ body {
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ── Universal Form Controls: Guaranteed High Visibility in Light & Dark Mode ─ */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+select option {
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
 }
 
 /* ── Universal Accessible Focus Indicators ─────────────────────────────────── */
@@ -109,9 +132,15 @@ html.dark textarea {
   color: #f8fafc !important;
 }
 
+html.dark select option {
+  color: #f8fafc !important;
+  background-color: #0a1122 !important;
+}
+
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #64748b !important;
+  color: #94a3b8 !important;
+  opacity: 1 !important;
 }
 
 /* Badges and tags in dark mode */

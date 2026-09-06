@@ -212,7 +212,7 @@ export default function VerificationModal({
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="State the official legal grounds and rule analysis..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -227,7 +227,7 @@ export default function VerificationModal({
               value={observations}
               onChange={(e) => setObservations(e.target.value)}
               placeholder="Specific measurements, font height verification, or vendor inspection notes..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -243,7 +243,7 @@ export default function VerificationModal({
                 value={actionTaken}
                 onChange={(e) => setActionTaken(e.target.value)}
                 placeholder="Show Cause Notice #, Compounding receipt #, or seizure order..."
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           )}
