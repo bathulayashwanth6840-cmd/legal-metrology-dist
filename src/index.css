@@ -23,11 +23,24 @@ body {
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
-  background: #f1f5f9;
+  background: linear-gradient(135deg, #F7F9FC 0%, #F3F5F8 45%, #EEF1F5 100%);
+  background-attachment: fixed;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* ── Soft Modern Enterprise Dashboard Background & Surface Tokens ─────────── */
+.bg-enterprise-canvas {
+  background: linear-gradient(135deg, #F7F9FC 0%, #F3F5F8 45%, #EEF1F5 100%);
+}
+
+.surface-enterprise-card {
+  background-color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
 
 /* ── Universal Form Controls: Guaranteed High Visibility in Light & Dark Mode ─ */
 input:not([type="checkbox"]):not([type="radio"]),

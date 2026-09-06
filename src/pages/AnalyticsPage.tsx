@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full pb-24 sm:pb-12 bg-slate-50">
+    <div className="flex flex-col min-h-full pb-24 sm:pb-12 bg-enterprise-canvas">
       {/* ── Top Header Banner ────────────────────────────────────────────── */}
       <div className="bg-[var(--color-navy)] text-white pt-8 pb-12 px-4 sm:px-8 shadow-md">
         <div className="max-w-7xl mx-auto">
@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Compliance Distribution Progress Bar (5 cols) */}
-          <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-5">
+          <div className="lg:col-span-5 bg-white/95 rounded-3xl p-6 border border-slate-300/40 shadow-[0_4px_18px_rgba(15,23,42,0.04)] space-y-5">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Compliance Distribution</h3>
@@ -291,7 +291,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Key Regulatory Facts */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-2">
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/60 text-xs text-slate-600 space-y-2">
               <div className="flex items-center gap-2 font-bold text-slate-800">
                 <TrendingUp size={16} className="text-blue-600" />
                 <span>Statutory Inspection Insights</span>
@@ -303,7 +303,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Top Violation Categories (7 cols) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-5">
+          <div className="lg:col-span-7 bg-white/95 rounded-3xl p-6 border border-slate-300/40 shadow-[0_4px_18px_rgba(15,23,42,0.04)] space-y-5">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Top Violation Categories</h3>
@@ -337,7 +337,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* ── Enforcement Activity Table & Filters ────────────────────────── */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-5">
+        <div className="bg-white/95 rounded-3xl p-6 border border-slate-300/40 shadow-[0_4px_18px_rgba(15,23,42,0.04)] space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="font-bold text-slate-900 text-lg">Enforcement Inspection Records</h3>
@@ -464,7 +464,7 @@ export default function AnalyticsPage() {
                 return (
                   <div
                     key={s.id}
-                    className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3 transition-all"
+                    className="bg-white/95 rounded-2xl p-4 border border-slate-300/40 shadow-[0_4px_18px_rgba(15,23,42,0.04)] space-y-3 transition-all"
                   >
                     {/* Top Row: ID & Status Badge */}
                     <div className="flex items-center justify-between gap-2">
