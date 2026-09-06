@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { RoleProvider } from './context/RoleContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -21,7 +21,7 @@ function App() {
     <ThemeProvider>
       <LanguageProvider>
         <RoleProvider>
-          <BrowserRouter>
+          <HashRouter>
             {/* Skip to Main Content Link for Keyboard / Screen Reader Accessibility */}
             <a
               href="#main-content"
@@ -62,7 +62,7 @@ function App() {
                 </main>
               </div>
             </div>
-          </BrowserRouter>
+          </HashRouter>
         </RoleProvider>
       </LanguageProvider>
     </ThemeProvider>
