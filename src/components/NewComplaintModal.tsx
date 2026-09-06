@@ -1,9 +1,9 @@
-// src/components/NewComplaintModal.tsx
 import React, { useState } from 'react';
 import { PlusCircle, X } from 'lucide-react';
 import type { ComplaintPriority, FindingEvidence } from '../types/complaint';
 import { useRole } from '../context/RoleContext';
 import { useFocusTrap } from '../utils/useFocusTrap';
+import EvidencePhotoUpload, { type AttachedEvidence } from './EvidencePhotoUpload';
 
 interface NewComplaintModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ interface NewComplaintModalProps {
     inspection: {
       location: string;
       marketDistrict: string;
+      packageImages?: { side: string; url: string }[];
     };
     findings: FindingEvidence[];
     priority: ComplaintPriority;
@@ -56,6 +57,7 @@ export default function NewComplaintModal({
   const [marketDistrict] = useState('Central District');
   const [priority, setPriority] = useState<ComplaintPriority>('High');
   const [violationDesc, setViolationDesc] = useState('');
+  const [evidencePhoto, setEvidencePhoto] = useState<AttachedEvidence | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   const modalRef = useFocusTrap({ isOpen, onClose });
@@ -69,6 +71,10 @@ export default function NewComplaintModal({
       return;
     }
 
+    const packageImages = evidencePhoto
+      ? [{ side: `Evidence Photo (${evidencePhoto.name})`, url: evidencePhoto.dataUrl }]
+      : [];
+
     const findings: FindingEvidence[] = violationDesc.trim()
       ? [
           {
@@ -81,7 +87,10 @@ export default function NewComplaintModal({
             requiredStandard: 'Compliance with mandatory Rule 6 declarations and font standards',
             aiStatus: 'POTENTIAL VIOLATION',
             confidence: 0.95,
-            evidenceNotes: 'Recorded during field inspection / citizen complaint filing.',
+            evidenceImageUrl: evidencePhoto ? evidencePhoto.dataUrl : undefined,
+            evidenceNotes: evidencePhoto
+              ? `Visual evidence attached: ${evidencePhoto.name}. Recorded during field inspection / citizen complaint filing.`
+              : 'Recorded during field inspection / citizen complaint filing.',
             reviewedByOfficer: false,
           },
         ]
@@ -106,6 +115,7 @@ export default function NewComplaintModal({
       inspection: {
         location,
         marketDistrict,
+        packageImages,
       },
       findings,
       priority,
@@ -303,6 +313,14 @@ export default function NewComplaintModal({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Evidence / Product Photo Upload Section (Optional) */}
+          <div className="border-t border-slate-100 pt-3">
+            <EvidencePhotoUpload
+              evidence={evidencePhoto}
+              onChange={setEvidencePhoto}
+            />
           </div>
 
           <div className="border-t border-slate-100 pt-3">
