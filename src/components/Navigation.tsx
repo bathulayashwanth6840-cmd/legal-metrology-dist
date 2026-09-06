@@ -10,19 +10,62 @@ import type { Language } from '../i18n/LanguageContext';
 import RoleSwitcher from './RoleSwitcher';
 import ThemeToggle from './ThemeToggle';
 
+interface NavItem {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  badge?: string;
+}
+
+interface NavSection {
+  title: string;
+  hasDivider?: boolean;
+  items: NavItem[];
+}
+
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
 
-  const navItems = [
+  const navSections: NavSection[] = [
+    {
+      title: 'MAIN',
+      items: [
+        { to: '/', icon: <Home size={18} />, label: t('nav.home') || 'Dashboard' },
+        { to: '/scan', icon: <Camera size={18} />, label: t('nav.scan') || 'New Inspection' },
+        { to: '/scan?mode=video360', icon: <Video size={18} />, label: t('nav.video360') || '360° Scan', badge: '360°' },
+      ],
+    },
+    {
+      title: 'COMPLAINTS',
+      items: [
+        { to: '/complaints', icon: <FileWarning size={18} />, label: t('nav.complaints') || 'Complaints & Enquiries', badge: 'NEW' },
+        { to: '/track', icon: <Search size={18} />, label: t('nav.track') || 'Track Complaint' },
+      ],
+    },
+    {
+      title: 'INSPECTIONS',
+      items: [
+        { to: '/history', icon: <History size={18} />, label: t('nav.history') || 'Inspection History' },
+        { to: '/reports', icon: <FileText size={18} />, label: t('nav.reports') || 'Reports' },
+      ],
+    },
+    {
+      title: 'ADMINISTRATION',
+      hasDivider: true,
+      items: [
+        { to: '/analytics', icon: <TrendingUp size={18} />, label: t('nav.analytics') || 'Compliance Analytics' },
+        { to: '/rules', icon: <BookOpen size={18} />, label: t('nav.rules') || 'Rules & Act' },
+        { to: '/profile', icon: <User size={18} />, label: t('nav.profile') || 'Settings & Profile' },
+      ],
+    },
+  ];
+
+  // Mobile bottom navigation items (top essentials)
+  const mobileNavItems: NavItem[] = [
     { to: '/', icon: <Home size={18} />, label: t('nav.home') || 'Dashboard' },
-    { to: '/scan', icon: <Camera size={18} />, label: t('nav.scan') || 'New Inspection' },
-    { to: '/scan?mode=video360', icon: <Video size={18} />, label: t('nav.video360') || '360° Scan', badge: '360°' },
-    { to: '/complaints', icon: <FileWarning size={18} />, label: t('nav.complaints') || 'Complaints & Enquiries', badge: 'NEW' },
-    { to: '/track', icon: <Search size={18} />, label: t('nav.track') || 'Track Complaint' },
-    { to: '/history', icon: <History size={18} />, label: t('nav.history') || 'Inspection History' },
-    { to: '/reports', icon: <FileText size={18} />, label: t('nav.reports') || 'Reports' },
-    { to: '/analytics', icon: <TrendingUp size={18} />, label: t('nav.analytics') || 'Compliance Analytics' },
-    { to: '/rules', icon: <BookOpen size={18} />, label: t('nav.rules') || 'Rules & Act' },
+    { to: '/scan', icon: <Camera size={18} />, label: t('nav.scan') || 'Scan' },
+    { to: '/complaints', icon: <FileWarning size={18} />, label: t('nav.complaints') || 'Complaints' },
+    { to: '/history', icon: <History size={18} />, label: t('nav.history') || 'History' },
     { to: '/profile', icon: <User size={18} />, label: t('nav.profile') || 'Settings' },
   ];
 
@@ -62,34 +105,49 @@ export default function Navigation() {
           </span>
         </div>
 
-        {/* Navigation items */}
-        <nav className="flex-1 py-2.5 overflow-y-auto">
-          <ul className="space-y-1 px-2.5">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs transition-all ${
-                      isActive
-                        ? 'bg-blue-800 text-white font-bold shadow-inner border-l-4 border-[var(--color-saffron)]'
-                        : 'text-blue-100 hover:bg-blue-900/60 hover:text-white border-l-4 border-transparent'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-2.5">
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="text-[8px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded-full uppercase">
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+        {/* Navigation items grouped by sections */}
+        <nav className="flex-1 py-3 overflow-y-auto px-2.5">
+          {navSections.map((section, idx) => (
+            <div
+              key={section.title}
+              className={`${idx > 0 ? 'mt-4' : ''} ${
+                section.hasDivider ? 'border-t border-blue-900/50 pt-3 mt-4' : ''
+              }`}
+            >
+              {/* Section Header */}
+              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-300/60 select-none pointer-events-none">
+                {section.title}
+              </div>
+
+              {/* Section Nav Links */}
+              <ul className="space-y-1">
+                {section.items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs transition-all ${
+                          isActive
+                            ? 'bg-blue-800 text-white font-bold shadow-inner border-l-4 border-[var(--color-saffron)]'
+                            : 'text-blue-100 hover:bg-blue-900/60 hover:text-white border-l-4 border-transparent'
+                        }`
+                      }
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="text-[8px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded-full uppercase">
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* Theme Mode Toggle */}
@@ -138,7 +196,7 @@ export default function Navigation() {
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────────── */}
       <div className="sm:hidden fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 z-50 shadow-lg transition-colors">
         <nav className="flex justify-around items-center">
-          {navItems.slice(0, 5).map((item) => (
+          {mobileNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
