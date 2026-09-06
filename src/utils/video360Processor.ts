@@ -75,7 +75,7 @@ function computeFrameSharpness(ctx: CanvasRenderingContext2D, width: number, hei
     }
 
     return count > 0 ? (laplacianVariance / count) * 4 : 50;
-  } catch (e) {
+  } catch {
     return 50;
   }
 }
@@ -84,6 +84,7 @@ function computeFrameSharpness(ctx: CanvasRenderingContext2D, width: number, hei
  * Formats seconds into MM:SS.S
  */
 function formatTime(sec: number): string {
+  if (!isFinite(sec) || isNaN(sec)) return '00:00.0s';
   const m = Math.floor(sec / 60);
   const s = (sec % 60).toFixed(1);
   return `${m.toString().padStart(2, '0')}:${s.padStart(4, '0')}s`;
@@ -91,16 +92,19 @@ function formatTime(sec: number): string {
 
 /**
  * Extracts the highest-quality non-duplicate frames from a 360° rotation video clip.
+ * Resilient against non-finite video duration (e.g. Chromium MediaRecorder WebM blobs).
  */
 export async function extractBest360Keyframes(
   videoBlobOrFile: Blob | File,
-  onProgress?: (progress: number, statusText: string) => void
+  onProgress?: (progress: number, statusText: string) => void,
+  fallbackDuration?: number
 ): Promise<Extracted360Result> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
     video.crossOrigin = 'anonymous';
+    video.preload = 'auto';
 
     const videoUrl = URL.createObjectURL(videoBlobOrFile);
     video.src = videoUrl;
@@ -117,7 +121,46 @@ export async function extractBest360Keyframes(
 
     video.onloadedmetadata = async () => {
       try {
-        const duration = Math.max(video.duration || 1, 1);
+        // Chromium WebM recorded via MediaRecorder often has duration = Infinity until seeked
+        if (!isFinite(video.duration) || isNaN(video.duration) || video.duration <= 0) {
+          await new Promise<void>((resolveSeek) => {
+            let resolved = false;
+            const finish = () => {
+              if (!resolved) {
+                resolved = true;
+                video.removeEventListener('timeupdate', onTimeUpdate);
+                video.removeEventListener('seeked', onTimeUpdate);
+                resolveSeek();
+              }
+            };
+            const onTimeUpdate = () => finish();
+            video.addEventListener('timeupdate', onTimeUpdate);
+            video.addEventListener('seeked', onTimeUpdate);
+
+            try {
+              video.currentTime = 1000000;
+            } catch {
+              finish();
+            }
+            setTimeout(finish, 350);
+          });
+
+          try {
+            video.currentTime = 0;
+          } catch {
+            // Ignore reset seek error
+          }
+        }
+
+        // Guaranteed strictly finite positive duration
+        let duration = Number(video.duration);
+        if (!isFinite(duration) || isNaN(duration) || duration <= 0) {
+          duration = fallbackDuration && isFinite(fallbackDuration) && fallbackDuration > 0
+            ? fallbackDuration
+            : 8;
+        }
+        duration = Math.max(1, Math.min(180, duration));
+
         const vw = video.videoWidth || 1280;
         const vh = video.videoHeight || 720;
 
@@ -132,8 +175,8 @@ export async function extractBest360Keyframes(
           return;
         }
 
-        // Sample 20 to 32 candidate timestamps evenly across the 360-degree rotation
-        const numCandidates = Math.min(32, Math.max(16, Math.floor(duration * 4)));
+        // Sample 12 to 32 candidate timestamps evenly across the 360-degree rotation
+        const numCandidates = Math.min(32, Math.max(12, Math.floor(duration * 3)));
         const step = duration / (numCandidates + 1);
 
         interface CandidateFrame {
@@ -145,7 +188,16 @@ export async function extractBest360Keyframes(
         const candidateFrames: CandidateFrame[] = [];
 
         for (let i = 1; i <= numCandidates; i++) {
-          const targetTime = i * step;
+          let targetTime = i * step;
+          if (!isFinite(targetTime) || isNaN(targetTime) || targetTime <= 0) {
+            targetTime = (i / (numCandidates + 1)) * duration;
+          }
+          // Clamp targetTime to strictly finite safe range
+          targetTime = Math.max(0.01, Math.min(duration - 0.05, targetTime));
+          if (!isFinite(targetTime)) {
+            targetTime = 0.5;
+          }
+
           if (onProgress) {
             onProgress(
               Math.round((i / numCandidates) * 50),
@@ -154,12 +206,30 @@ export async function extractBest360Keyframes(
           }
 
           await new Promise<void>((resSeek) => {
-            const onSeeked = () => {
-              video.removeEventListener('seeked', onSeeked);
-              resSeek();
+            let finished = false;
+            const finish = () => {
+              if (!finished) {
+                finished = true;
+                video.removeEventListener('seeked', onSeeked);
+                resSeek();
+              }
             };
+            const onSeeked = () => finish();
             video.addEventListener('seeked', onSeeked);
-            video.currentTime = targetTime;
+
+            try {
+              if (isFinite(targetTime) && targetTime >= 0) {
+                video.currentTime = targetTime;
+              } else {
+                finish();
+              }
+            } catch (seekErr) {
+              console.warn('Video seek warning:', seekErr);
+              finish();
+            }
+
+            // Timeout fallback to avoid hanging if seeked event is dropped
+            setTimeout(finish, 400);
           });
 
           ctx.drawImage(video, 0, 0, vw, vh);
@@ -175,6 +245,21 @@ export async function extractBest360Keyframes(
               timestamp: targetTime,
               sharpness,
               blob: frameBlob,
+            });
+          }
+        }
+
+        // Fallback if no frames were collected
+        if (candidateFrames.length === 0) {
+          ctx.drawImage(video, 0, 0, vw, vh);
+          const fallbackBlob = await new Promise<Blob | null>((resBlob) => {
+            canvas.toBlob((b) => resBlob(b), 'image/jpeg', 0.92);
+          });
+          if (fallbackBlob) {
+            candidateFrames.push({
+              timestamp: 0.5,
+              sharpness: 75,
+              blob: fallbackBlob,
             });
           }
         }
@@ -208,10 +293,15 @@ export async function extractBest360Keyframes(
         let selectedCount = 0;
 
         for (const sec of sideSectors) {
-          const sectorCandidates = candidateFrames.filter((c) => {
-            const ratio = c.timestamp / duration;
+          let sectorCandidates = candidateFrames.filter((c) => {
+            const ratio = duration > 0 ? c.timestamp / duration : 0;
             return ratio >= sec.startRatio && ratio < sec.endRatio;
           });
+
+          // If no specific candidate in this sector, reuse closest candidate
+          if (sectorCandidates.length === 0 && candidateFrames.length > 0) {
+            sectorCandidates = candidateFrames;
+          }
 
           if (sectorCandidates.length > 0) {
             // Pick highest sharpness candidate in this sector

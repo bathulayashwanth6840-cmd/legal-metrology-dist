@@ -97,7 +97,7 @@ export default function Video360Recorder({ onKeyframesExtracted }: Video360Recor
 
       recorder.onstop = async () => {
         const fullBlob = new Blob(recordedChunksRef.current, { type: mimeType });
-        await processVideoBlob(fullBlob);
+        await processVideoBlob(fullBlob, count || recordSeconds || 10);
       };
 
       recorder.start(250);
@@ -130,15 +130,19 @@ export default function Video360Recorder({ onKeyframesExtracted }: Video360Recor
   };
 
   // Process video blob through frame extraction engine
-  const processVideoBlob = async (blobOrFile: Blob | File) => {
+  const processVideoBlob = async (blobOrFile: Blob | File, fallbackDuration?: number) => {
     setIsAnalyzing(true);
     setAnalyzeProgress(10);
     setAnalyzeStatusText('Initializing 360° intelligent frame analyzer...');
     try {
-      const result = await extractBest360Keyframes(blobOrFile, (prog, text) => {
-        setAnalyzeProgress(prog);
-        setAnalyzeStatusText(text);
-      });
+      const result = await extractBest360Keyframes(
+        blobOrFile,
+        (prog, text) => {
+          setAnalyzeProgress(prog);
+          setAnalyzeStatusText(text);
+        },
+        fallbackDuration || recordSeconds || 10
+      );
       setExtractionResult(result);
     } catch (e: any) {
       setCameraError(`Video processing failed: ${e.message || e}`);
@@ -150,7 +154,7 @@ export default function Video360Recorder({ onKeyframesExtracted }: Video360Recor
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    processVideoBlob(file);
+    processVideoBlob(file, 10);
   };
 
   const rotationAngle = Math.min(360, Math.round((recordSeconds / 10) * 360));
