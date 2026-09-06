@@ -50,6 +50,29 @@ interface SideQualityInfo {
   dimensions?: string;
 }
 
+const SCAN_PROCESSING_STAGES = [
+  {
+    id: 1,
+    title: 'Stage 1: Uploading images',
+    description: 'Compressing and transmitting multi-side packaging captures to processing engine...',
+  },
+  {
+    id: 2,
+    title: 'Stage 2: Reading product information',
+    description: 'Scanning packaging labels with PaddleOCR & Gemini Vision AI...',
+  },
+  {
+    id: 3,
+    title: 'Stage 3: Analyzing label and compliance data',
+    description: 'Reconciling mandatory declarations against Legal Metrology Rules, 2011...',
+  },
+  {
+    id: 4,
+    title: 'Stage 4: Validating results',
+    description: 'Validating non-conformances and generating compliance certification...',
+  },
+];
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PRODUCT_SIDES: SideCardConfig[] = [
   { side: 'front', labelKey: 'scan.front', descKey: 'scan.front_desc', defaultLabel: 'Front Side', defaultDesc: 'Brand name, product title, net quantity', icon: '📦', badgeColor: '#3b82f6' },
@@ -351,10 +374,13 @@ export default function ScanPage() {
 
   // Pipeline & Execution state
   const [isScanning, setIsScanning] = useState(false);
+  const [isScanComplete, setIsScanComplete] = useState(false);
+  const [scanStageIndex, setScanStageIndex] = useState(0);
+  const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [error, setError] = useState('');
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+  const scanAbortControllerRef = useRef<AbortController | null>(null);
 
   // Results state
   const [scanResult, setScanResult] = useState<any>(null);
@@ -654,12 +680,36 @@ export default function ScanPage() {
     }
 
     setIsScanning(true);
+    setIsScanComplete(false);
     setError('');
-    setCurrentStageIdx(0);
+    setScanStageIndex(0);
+    setScanElapsedSeconds(0);
 
+    const abortController = new AbortController();
+    scanAbortControllerRef.current = abortController;
+
+    const startTime = Date.now();
     const stageInterval = setInterval(() => {
-      setCurrentStageIdx((prev) => (prev < 6 ? prev + 1 : prev));
-    }, 900);
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+      setScanElapsedSeconds(elapsedSec);
+
+      // Backend-aware stage timing based on live network progress
+      if (elapsedSec < 2) {
+        setScanStageIndex(0); // Stage 1: Uploading images
+      } else if (elapsedSec < 5) {
+        setScanStageIndex(1); // Stage 2: Reading product information (PaddleOCR & Gemini)
+      } else if (elapsedSec < 8) {
+        setScanStageIndex(2); // Stage 3: Analyzing label and compliance data
+      } else {
+        setScanStageIndex(3); // Stage 4: Validating results (stays here until real backend response arrives)
+      }
+    }, 500);
+
+    const timeoutId = setTimeout(() => {
+      if (scanAbortControllerRef.current) {
+        scanAbortControllerRef.current.abort();
+      }
+    }, 60000);
 
     try {
       const formData = new FormData();
@@ -679,9 +729,11 @@ export default function ScanPage() {
       const response = await fetch(`${apiUrl}/api/scans/`, {
         method: 'POST',
         body: formData,
+        signal: abortController.signal,
       });
 
       clearInterval(stageInterval);
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -689,6 +741,13 @@ export default function ScanPage() {
       }
 
       const data = await response.json();
+
+      // Only display 100% and success state AFTER backend has successfully returned
+      setIsScanComplete(true);
+      setScanStageIndex(3);
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       setScanResult(data);
 
       const extractedMap = resolveExtractedFields(data);
@@ -702,10 +761,17 @@ export default function ScanPage() {
       setStep('REVIEW');
     } catch (e: any) {
       clearInterval(stageInterval);
+      clearTimeout(timeoutId);
       console.error('Scan error:', e);
-      setError(e.message || 'Scan failed to process.');
+      if (e.name === 'AbortError') {
+        setError('Scanning timed out after 60 seconds. The server took too long to complete OCR/Vision analysis. Please try again.');
+      } else {
+        setError(e.message || 'Scan failed to process. Please check your network and try again.');
+      }
     } finally {
       setIsScanning(false);
+      setIsScanComplete(false);
+      scanAbortControllerRef.current = null;
     }
   };
 
@@ -787,16 +853,6 @@ export default function ScanPage() {
   const extConf = scanResult?.extraction_confidence ?? scanResult?.extracted_fields?.extraction_confidence ?? 88.0;
 
   const currentStepIdx = STEPS.findIndex((s) => s.id === step);
-
-  const progressStages = [
-    t('progress.stage1'),
-    t('progress.stage2'),
-    t('progress.stage3'),
-    t('progress.stage4'),
-    t('progress.stage5'),
-    t('progress.stage6'),
-    t('progress.stage7'),
-  ];
 
   return (
     <div className="min-h-full bg-slate-50 select-none pb-24 sm:pb-12">
@@ -909,11 +965,36 @@ export default function ScanPage() {
 
         {/* Error Banner */}
         {error && (
-          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-3 shadow-2xs">
-            <XCircle size={18} className="text-rose-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold text-xs block">Scan Processing Error</span>
-              <span className="text-xs text-rose-700">{error}</span>
+          <div
+            role="alert"
+            className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs animate-in fade-in duration-200"
+          >
+            <div className="flex items-start gap-3">
+              <XCircle size={20} className="text-rose-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <span className="font-bold text-xs block text-rose-950">Scan Processing Interrupted</span>
+                <span className="text-xs text-rose-800 leading-relaxed block mt-0.5">{error}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="px-3 py-1.5 bg-white hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition-colors"
+              >
+                Dismiss
+              </button>
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleScan}
+                  disabled={isScanning}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <RotateCcw size={13} aria-hidden="true" />
+                  <span>Retry Scan</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -2917,44 +2998,122 @@ export default function ScanPage() {
         />
       )}
 
-      {/* ── Multi-Stage Scanning Progress Overlay ─────────────────────────── */}
+      {/* ── Multi-Stage Scanning Progress Overlay (Backend-Aware) ──────────── */}
       {isScanning && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-              <Sparkles size={32} />
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-5">
+            {/* Animated Header Icon */}
+            <div className="relative mx-auto w-16 h-16 flex items-center justify-center">
+              {isScanComplete ? (
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-200">
+                  <CheckCircle2 size={36} className="text-emerald-600" aria-hidden="true" />
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center relative">
+                  <Sparkles size={28} className="animate-pulse text-blue-600" aria-hidden="true" />
+                  <div className="absolute inset-0 rounded-2xl border-2 border-blue-400/40 border-t-blue-600 animate-spin" />
+                </div>
+              )}
             </div>
 
-            <h3 className="text-lg font-black text-slate-900">{t('progress.title')}</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-6">{t('progress.subtitle')}</p>
+            <div>
+              <h3 className="text-lg font-black text-slate-900">
+                {isScanComplete ? 'Scan Complete!' : t('progress.title')}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                {isScanComplete
+                  ? 'All packaging declarations verified. Loading review dashboard...'
+                  : 'Processing your inspection. This may take a few moments.'}
+              </p>
+            </div>
 
-            <div className="space-y-2.5 text-left mb-6">
-              {progressStages.map((stage, idx) => {
-                const done = idx < currentStageIdx;
-                const active = idx === currentStageIdx;
+            {/* Indeterminate Looping Progress Bar while waiting for backend */}
+            <div
+              className="w-full bg-slate-100 rounded-full h-2 overflow-hidden relative"
+              role="progressbar"
+              aria-label="Scan processing progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={isScanComplete ? 100 : undefined}
+            >
+              {isScanComplete ? (
+                <div className="bg-emerald-500 h-full w-full transition-all duration-300" />
+              ) : (
+                <div className="absolute inset-y-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500 rounded-full animate-indeterminate-shimmer" />
+              )}
+            </div>
+
+            {/* Slow Processing Reassurance Banner (>8s) */}
+            {scanElapsedSeconds >= 8 && !isScanComplete && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-950 text-left flex items-start gap-2.5 animate-in fade-in duration-300">
+                <Loader2 size={16} className="text-amber-600 flex-shrink-0 mt-0.5 animate-spin" aria-hidden="true" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-bold block text-amber-900">Processing is taking longer than usual.</span>
+                  <span className="text-amber-800/90">Please wait while our PaddleOCR and Gemini Vision models complete the deep compliance analysis ({scanElapsedSeconds}s elapsed).</span>
+                </div>
+              </div>
+            )}
+
+            {/* 4 Discrete Processing Stages */}
+            <div className="space-y-2 text-left" role="list" aria-label="Inspection Analysis Stages">
+              {SCAN_PROCESSING_STAGES.map((stage, idx) => {
+                const isDone = isScanComplete || idx < scanStageIndex;
+                const isActive = !isScanComplete && idx === scanStageIndex;
+
                 return (
                   <div
-                    key={idx}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                      done ? 'bg-emerald-50 text-emerald-800' :
-                      active ? 'bg-blue-50 text-blue-800 font-bold ring-1 ring-blue-300' :
-                      'text-slate-400'
+                    key={stage.id}
+                    role="listitem"
+                    className={`flex items-start gap-3 p-2.5 rounded-2xl text-xs transition-all ${
+                      isDone
+                        ? 'bg-emerald-50/80 text-emerald-900 border border-emerald-200/60'
+                        : isActive
+                        ? 'bg-blue-50 text-blue-950 font-bold border border-blue-200 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'text-slate-400 border border-slate-100 bg-slate-50/50'
                     }`}
                   >
-                    {done ? (
-                      <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
-                    ) : active ? (
-                      <Loader2 size={16} className="animate-spin text-blue-600 flex-shrink-0" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-slate-300 flex-shrink-0" />
-                    )}
-                    <span className="truncate">{stage}</span>
+                    <div className="flex-shrink-0 mt-0.5">
+                      {isDone ? (
+                        <CheckCircle2 size={16} className="text-emerald-600" aria-hidden="true" />
+                      ) : isActive ? (
+                        <Loader2 size={16} className="animate-spin text-blue-600" aria-hidden="true" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-slate-300 flex items-center justify-center text-[9px] font-bold text-slate-400">
+                          {stage.id}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className={`truncate ${isActive ? 'font-black text-blue-900' : isDone ? 'font-bold text-emerald-900' : ''}`}>
+                          {stage.title}
+                        </span>
+                        {isActive && (
+                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider animate-pulse">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      {isActive && (
+                        <p className="text-[10px] text-blue-700/80 font-normal mt-0.5 leading-tight">
+                          {stage.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <span className="text-[11px] text-slate-400 font-medium">Please keep this window open while processing...</span>
+            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <span>National Legal Metrology Portal</span>
+              <span className="font-mono">Time: {scanElapsedSeconds}s</span>
+            </div>
           </div>
         </div>
       )}

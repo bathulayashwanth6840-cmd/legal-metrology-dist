@@ -1,6 +1,5 @@
-// src/pages/ComplaintsPage.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FileWarning, Search, Plus,
   Eye, RefreshCw, Trash2, Camera, Sparkles
@@ -62,6 +61,7 @@ const STATUS_CONFIG: Record<
 
 export default function ComplaintsPage() {
   const { currentRole, profile } = useRole();
+  const [searchParams] = useSearchParams();
   const [complaints, setComplaints] = useState<ComplaintRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +71,10 @@ export default function ComplaintsPage() {
 
   useEffect(() => {
     loadComplaints();
-  }, []);
+    if (searchParams.get('action') === 'new' || searchParams.get('new') === 'true') {
+      setIsNewModalOpen(true);
+    }
+  }, [searchParams]);
 
   const loadComplaints = () => {
     setLoading(true);
@@ -421,108 +424,168 @@ export default function ComplaintsPage() {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/80">
-                    <th className="p-3.5">Complaint ID</th>
-                    <th className="p-3.5">Product & Brand</th>
-                    <th className="p-3.5">Date & Jurisdiction</th>
-                    <th className="p-3.5">Submitted By</th>
-                    <th className="p-3.5">Current Status</th>
-                    <th className="p-3.5">Assigned Authority</th>
-                    <th className="p-3.5">Priority</th>
-                    <th className="p-3.5">Findings</th>
-                    <th className="p-3.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredComplaints.map((c) => {
-                    const st = STATUS_CONFIG[c.currentStatus] || STATUS_CONFIG.Submitted;
-                    return (
-                      <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="p-3.5 font-mono font-black text-slate-900">
-                          <Link to={`/complaints/${c.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
-                            {c.id}
-                          </Link>
-                          <span className="text-[10px] text-slate-400 font-mono block">
-                            Ref: {c.inspectionId}
+            <div>
+              {/* ── Desktop & Tablet Table View ─────────────────────────────── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/80">
+                      <th className="p-3.5">Complaint ID</th>
+                      <th className="p-3.5">Product & Brand</th>
+                      <th className="p-3.5">Date & Jurisdiction</th>
+                      <th className="p-3.5">Submitted By</th>
+                      <th className="p-3.5">Current Status</th>
+                      <th className="p-3.5">Assigned Authority</th>
+                      <th className="p-3.5">Priority</th>
+                      <th className="p-3.5">Findings</th>
+                      <th className="p-3.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredComplaints.map((c) => {
+                      const st = STATUS_CONFIG[c.currentStatus] || STATUS_CONFIG.Submitted;
+                      return (
+                        <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="p-3.5 font-mono font-black text-slate-900">
+                            <Link to={`/complaints/${c.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                              {c.id}
+                            </Link>
+                            <span className="text-[10px] text-slate-400 font-mono block">
+                              Ref: {c.inspectionId}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 max-w-xs">
+                            <span className="font-bold text-slate-900 block truncate">{c.product.productName}</span>
+                            <span className="text-[10px] text-slate-400 block">
+                              {c.product.category} • MRP: {c.product.mrp}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className="font-semibold text-slate-800 block">
+                              {new Date(c.dateSubmitted).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block max-w-[150px] truncate">
+                              {c.location}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className="font-medium text-slate-700 block">{c.submittedBy}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">Role: {c.submitterRole}</span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] border ${st.badgeClass}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${st.dotColor}`} />
+                              <span>{st.label}</span>
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-slate-700 max-w-[180px]">
+                            <span className="font-medium block truncate" title={c.assignedAuthority}>
+                              {c.assignedAuthority}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                c.priority === 'High'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : c.priority === 'Medium'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {c.priority}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className="font-black text-slate-800">{c.findings.length}</span>
+                            <span className="text-[10px] text-slate-400 ml-1">items</span>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <Link
+                              to={`/complaints/${c.id}`}
+                              className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-all cursor-pointer"
+                            >
+                              <Eye size={13} />
+                              <span>Open Dossier</span>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Mobile Responsive Card View (No Horizontal Scrolling) ────── */}
+              <div className="block md:hidden p-3 space-y-3">
+                {filteredComplaints.map((c) => {
+                  const st = STATUS_CONFIG[c.currentStatus] || STATUS_CONFIG.Submitted;
+                  return (
+                    <div
+                      key={c.id}
+                      className="bg-slate-50/70 rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-black text-xs bg-slate-900 text-amber-400 px-2.5 py-1 rounded-lg">
+                          {c.id}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] border font-bold ${st.badgeClass}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${st.dotColor}`} />
+                          <span>{st.label}</span>
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-black text-slate-900 text-sm">{c.product.productName}</h4>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <span>Ref: {c.inspectionId}</span>
+                          <span>•</span>
+                          <span>{new Date(c.dateSubmitted).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-2.5 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Priority</span>
+                          <span className={`font-black text-[10px] uppercase ${
+                            c.priority === 'High' ? 'text-rose-600' : c.priority === 'Medium' ? 'text-amber-600' : 'text-blue-600'
+                          }`}>
+                            {c.priority} Priority
                           </span>
-                        </td>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Findings</span>
+                          <span className="font-bold text-slate-800">{c.findings.length} Violations</span>
+                        </div>
+                      </div>
 
-                        <td className="p-3.5 max-w-xs">
-                          <span className="font-bold text-slate-900 block truncate">{c.product.productName}</span>
-                          <span className="text-[10px] text-slate-400 block">
-                            {c.product.category} • MRP: {c.product.mrp}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5">
-                          <span className="font-semibold text-slate-800 block">
-                            {new Date(c.dateSubmitted).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            })}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block max-w-[150px] truncate">
-                            {c.location}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5">
-                          <span className="font-medium text-slate-700 block">{c.submittedBy}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">Role: {c.submitterRole}</span>
-                        </td>
-
-                        <td className="p-3.5">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] border ${st.badgeClass}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${st.dotColor}`} />
-                            <span>{st.label}</span>
-                          </span>
-                        </td>
-
-                        <td className="p-3.5 text-slate-700 max-w-[180px]">
-                          <span className="font-medium block truncate" title={c.assignedAuthority}>
-                            {c.assignedAuthority}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                              c.priority === 'High'
-                                ? 'bg-rose-100 text-rose-800'
-                                : c.priority === 'Medium'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {c.priority}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5">
-                          <span className="font-black text-slate-800">{c.findings.length}</span>
-                          <span className="text-[10px] text-slate-400 ml-1">items</span>
-                        </td>
-
-                        <td className="p-3.5 text-right">
-                          <Link
-                            to={`/complaints/${c.id}`}
-                            className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Eye size={13} />
-                            <span>Open Dossier</span>
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      <Link
+                        to={`/complaints/${c.id}`}
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                      >
+                        <Eye size={14} />
+                        <span>Open Complete Docket</span>
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

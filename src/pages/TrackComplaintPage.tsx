@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
-  Search, ShieldCheck, Clock, AlertCircle, ArrowRight
+  Search, ShieldCheck, Clock, ArrowRight, FileWarning
 } from 'lucide-react';
 import { getPublicComplaintInfo } from '../services/complaintService';
 import type { ComplaintStatus } from '../types/complaint';
@@ -106,16 +106,54 @@ export default function TrackComplaintPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-6 space-y-6 w-full" aria-live="polite">
         {hasSearched && !result && (
           <div
-            role="alert"
-            className="bg-white rounded-3xl p-8 border border-slate-200 shadow-2xs text-center space-y-3 animate-in fade-in duration-150"
+            role="status"
+            className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-2xs text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-200"
           >
-            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto" aria-hidden="true">
-              <AlertCircle size={28} />
+            <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto border border-amber-200/60 shadow-xs" aria-hidden="true">
+              <Search size={30} className="text-amber-600" />
             </div>
-            <h2 className="text-base font-black text-slate-900">Complaint ID Not Found</h2>
-            <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-              No statutory complaint was found with ID <span className="font-mono font-bold text-slate-800">"{complaintIdInput}"</span>. Please check the Complaint ID on your acknowledgement receipt and try again.
-            </p>
+
+            <div className="space-y-2 max-w-md mx-auto">
+              <h2 className="text-xl font-black text-slate-900">Complaint Not Found</h2>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-medium">
+                We couldn't find a complaint with this reference number{complaintIdInput ? <> (<span className="font-mono font-bold text-slate-800">"{complaintIdInput}"</span>)</> : ''}. Please check the ID and try again.
+              </p>
+            </div>
+
+            {/* Direct Next Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 max-w-lg mx-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('complaint-id-search-input') as HTMLInputElement | null;
+                  if (input) {
+                    input.focus();
+                    input.select();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <Search size={14} aria-hidden="true" />
+                <span>Try Another Complaint ID</span>
+              </button>
+
+              <Link
+                to="/complaints?action=new"
+                state={{ attemptedRef: complaintIdInput }}
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <FileWarning size={14} aria-hidden="true" />
+                <span>Register This Product as a New Grievance</span>
+              </Link>
+            </div>
+
+            {/* Helpful Advisory Text */}
+            <div className="pt-4 border-t border-slate-100 max-w-md mx-auto">
+              <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
+                💡 Don't have a complaint reference number yet? You can register a new grievance under the Legal Metrology (Packaged Commodities) Rules, 2011.
+              </p>
+            </div>
           </div>
         )}
 

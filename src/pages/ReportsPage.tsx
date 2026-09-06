@@ -118,11 +118,11 @@ export default function ReportsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 w-full md:w-auto">
             <button
               type="button"
               onClick={() => setActiveTab('ALL')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'ALL'
                   ? 'bg-[var(--color-navy)] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -133,24 +133,24 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={() => setActiveTab('COMPLAINTS')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'COMPLAINTS'
                   ? 'bg-blue-800 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Complaints & Enquiries ({filteredComplaints.length})
+              Complaints ({filteredComplaints.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('INSPECTIONS')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'INSPECTIONS'
                   ? 'bg-blue-800 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Field Inspections ({filteredScans.length})
+              Inspections ({filteredScans.length})
             </button>
           </div>
         </div>
