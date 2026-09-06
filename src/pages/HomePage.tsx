@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   Camera, ShieldCheck, Sparkles, ArrowRight,
-  Video, Eye, RefreshCw, FileWarning, ChevronRight, Download
+  Video, Eye, RefreshCw, FileWarning, ChevronRight
 } from 'lucide-react';
 import { getStoredComplaints } from '../services/complaintService';
 import type { ComplaintRecord } from '../types/complaint';
@@ -170,18 +170,6 @@ export default function HomePage() {
                 <FileWarning size={16} />
                 <span>Complaints & Enquiries</span>
               </Link>
-
-              <a
-                href="/SMART_INDIA_HACKATHON_2026.pdf"
-                download="SMART_INDIA_HACKATHON_2026.pdf"
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-3.5 bg-white/10 hover:bg-white/20 text-amber-300 hover:text-amber-200 font-black text-xs rounded-2xl border border-amber-400/40 shadow-md flex items-center gap-2 transition-all"
-                title="Download SIH 2026 Presentation Slides (PDF)"
-              >
-                <Download size={15} />
-                <span>Download SIH PPT (PDF)</span>
-              </a>
 
               <button
                 type="button"
