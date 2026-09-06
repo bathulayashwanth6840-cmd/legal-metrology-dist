@@ -421,10 +421,18 @@ export default function HistoryPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredScans.map((scan) => {
             const isSelected = selectedIds.includes(scan.id);
-            const rawImg = scan.images?.[0] || scan.preview_image || scan.image_url;
+            const rawImg = scan.image_path || scan.images?.[0] || scan.preview_image || scan.image_url || scan.extracted_fields?.images_paths?.[0];
             const previewImg = rawImg ? resolveImageUrl(rawImg) : null;
-            const productName = scan.extracted_fields?.product_name || scan.extracted_fields?.brand_name || 'Packaged Commodity';
+            const productName =
+              scan.extracted_fields?.semantic_fields?.product_name ||
+              scan.extracted_fields?.product_name ||
+              scan.extracted_fields?.fusion_fields?.product_name?.selected_value ||
+              scan.extracted_fields?.brand_name ||
+              'Packaged Commodity';
             const score = scan.compliance_score?.score ?? scan.extracted_fields?.compliance_score?.score;
+            const scanDate = scan.created_at
+              ? new Date(scan.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+              : null;
 
             return (
               <div
@@ -476,9 +484,16 @@ export default function HistoryPage() {
                   <div className="p-4">
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-mono text-[11px] text-gray-500 font-semibold">
-                          ID: #{scan.id}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] text-gray-500 font-semibold">
+                            ID: #{scan.id}
+                          </span>
+                          {scanDate && (
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              • {scanDate}
+                            </span>
+                          )}
+                        </div>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           scan.status === 'compliant' ? 'bg-emerald-100 text-emerald-800' :
                           scan.status === 'needs_review' ? 'bg-amber-100 text-amber-800' :
