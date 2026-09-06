@@ -1,5 +1,5 @@
 // src/components/Navigation.tsx
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Camera, History, User, BookOpen,
   Globe, Video, FileText, TrendingUp, ShieldCheck,
@@ -25,6 +25,27 @@ interface NavSection {
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
+  const location = useLocation();
+
+  const isItemActive = (itemTo: string) => {
+    const currentFullPath = location.pathname + location.search;
+
+    if (itemTo === '/') {
+      return location.pathname === '/' && location.search === '';
+    }
+
+    if (itemTo.includes('?')) {
+      // Exact match for query parameters like /scan?mode=video360
+      return currentFullPath === itemTo;
+    }
+
+    if (itemTo === '/scan') {
+      // Active ONLY when on /scan and NOT in 360 mode
+      return location.pathname === '/scan' && !location.search.includes('mode=video360');
+    }
+
+    return location.pathname.startsWith(itemTo);
+  };
 
   const navSections: NavSection[] = [
     {
@@ -121,30 +142,37 @@ export default function Navigation() {
 
               {/* Section Nav Links */}
               <ul className="space-y-1">
-                {section.items.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs transition-all ${
+                {section.items.map((item) => {
+                  const isActive = isItemActive(item.to);
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        to={item.to}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs transition-all ${
                           isActive
                             ? 'bg-blue-800 text-white font-bold shadow-inner border-l-4 border-[var(--color-saffron)]'
-                            : 'text-blue-100 hover:bg-blue-900/60 hover:text-white border-l-4 border-transparent'
-                        }`
-                      }
-                    >
-                      <div className="flex items-center gap-2.5">
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </div>
-                      {item.badge && (
-                        <span className="text-[8px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded-full uppercase">
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  </li>
-                ))}
+                            : 'text-blue-100/90 hover:bg-blue-900/60 hover:text-white border-l-4 border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span
+                            className={`text-[8px] px-1.5 py-0.5 rounded-full uppercase transition-all ${
+                              isActive
+                                ? 'bg-amber-400 text-slate-950 font-black shadow-sm'
+                                : 'bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -196,20 +224,21 @@ export default function Navigation() {
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────────── */}
       <div className="sm:hidden fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 z-50 shadow-lg transition-colors">
         <nav className="flex justify-around items-center">
-          {mobileNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex flex-col items-center py-2 px-1 w-full text-center transition-colors ${
-                  isActive ? 'text-[var(--color-navy)] dark:text-amber-400 font-bold' : 'text-gray-400 dark:text-slate-400 font-normal'
-                }`
-              }
-            >
-              {item.icon}
-              <span className="text-[9px] mt-0.5 truncate max-w-[60px]">{item.label}</span>
-            </NavLink>
-          ))}
+          {mobileNavItems.map((item) => {
+            const active = isItemActive(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex flex-col items-center py-2 px-1 w-full text-center transition-colors ${
+                  active ? 'text-[var(--color-navy)] dark:text-amber-400 font-bold' : 'text-gray-400 dark:text-slate-400 font-normal'
+                }`}
+              >
+                {item.icon}
+                <span className="text-[9px] mt-0.5 truncate max-w-[60px]">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </>
