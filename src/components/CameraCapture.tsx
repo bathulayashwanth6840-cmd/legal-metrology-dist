@@ -63,23 +63,30 @@ export default function CameraCapture({
       }
 
       try {
-        const constraints: MediaStreamConstraints = {
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-          audio: false,
-        };
+        let newStream: MediaStream;
+        try {
+          const constraints: MediaStreamConstraints = {
+            video: {
+              facingMode: { ideal: mode },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+            audio: false,
+          };
+          newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch {
+          // Fallback to basic video constraint if ideal resolution/facingMode fails
+          newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
 
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(newStream);
 
         if (videoRef.current) {
           videoRef.current.srcObject = newStream;
-          videoRef.current.play().catch(() => {
-            // Autoplay policies handling
-          });
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(() => {});
+          };
+          videoRef.current.play().catch(() => {});
         }
 
         // Check if multiple camera devices exist
@@ -103,7 +110,6 @@ export default function CameraCapture({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 

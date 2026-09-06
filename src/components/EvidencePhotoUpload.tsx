@@ -1,8 +1,8 @@
-// src/components/EvidencePhotoUpload.tsx
 import React, { useState, useRef, useCallback } from 'react';
 import { Camera, FolderOpen, RefreshCw, Trash2, CheckCircle2, AlertCircle, FileImage, X, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor';
 import { fileToDataUrl, handleImageError } from '../utils/imageUtils';
+import CameraCapture from './CameraCapture';
 
 export interface AttachedEvidence {
   dataUrl: string;
@@ -57,6 +57,7 @@ export default function EvidencePhotoUpload({
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -144,8 +145,16 @@ export default function EvidencePhotoUpload({
 
   const handleTakePhoto = () => {
     setError(null);
-    if (cameraInputRef.current) {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === 'function'
+    ) {
+      setIsCameraModalOpen(true);
+    } else if (cameraInputRef.current) {
       cameraInputRef.current.click();
+    } else {
+      setIsCameraModalOpen(true);
     }
   };
 
@@ -292,7 +301,7 @@ export default function EvidencePhotoUpload({
                   aria-label="Take photo using camera"
                 >
                   <Camera size={16} aria-hidden="true" />
-                  <span>📷 Take Photo</span>
+                  <span>Take Photo</span>
                 </button>
 
                 <button
@@ -381,6 +390,17 @@ export default function EvidencePhotoUpload({
           </div>
         </div>
       )}
+
+      {/* Live Interactive Camera Viewfinder Modal */}
+      <CameraCapture
+        isOpen={isCameraModalOpen}
+        sideLabel="Evidence / Product Photo"
+        onCapture={(file) => {
+          validateAndProcessFile(file);
+          setIsCameraModalOpen(false);
+        }}
+        onClose={() => setIsCameraModalOpen(false)}
+      />
     </div>
   );
 }
