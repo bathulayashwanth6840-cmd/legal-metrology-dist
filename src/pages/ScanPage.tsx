@@ -2573,7 +2573,8 @@ export default function ScanPage() {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop & Tablet Table */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50">
@@ -2656,6 +2657,89 @@ export default function ScanPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile Responsive Stacked Cards */}
+                <div className="block md:hidden space-y-3 pt-2">
+                  {METROLOGY_FIELDS.map((fc) => {
+                    const val = fields[fc.key];
+                    const hasVal = Boolean(val && val.trim());
+                    const checkMatch = inspectionChecklist.find((c: any) => c.fieldKey === fc.key || c.id === fc.key);
+                    const isCritical = fc.isCritical;
+                    const meta = fusionFields[fc.key] || {};
+                    const sourceSide = meta.source_side ? String(meta.source_side).toUpperCase() : (checkMatch?.evidenceRegion || 'Unseen Surface');
+
+                    let displayVal = val;
+                    let badgeLabel = '✅ Verified';
+                    let badgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+
+                    if (!hasVal) {
+                      if (checkMatch) {
+                        displayVal = checkMatch.detected;
+                        const b = getDetectionBadge(checkMatch.detectionState);
+                        badgeLabel = b.label;
+                        badgeColor = b.color;
+                      } else {
+                        displayVal = viewsCount === 1 ? 'Not visible on captured panel' : 'Not detected on current image';
+                        badgeLabel = isCritical ? '⚠️ Needs Review' : 'ℹ️ Optional / Absent';
+                        badgeColor = isCritical ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200';
+                      }
+                    } else if (meta.conflict) {
+                      badgeLabel = '⚠️ Discrepancy (Review)';
+                      badgeColor = 'bg-purple-100 text-purple-900 border border-purple-300';
+                    }
+
+                    const confidenceStr = hasVal ? `${Math.min(99, Math.max(85, Math.round((ocrConf || 90) * 1.05)))}%` : '—';
+
+                    return (
+                      <div
+                        key={fc.key}
+                        className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/80 shadow-2xs space-y-2.5 transition-all hover:bg-slate-50"
+                      >
+                        {/* Top Row: Requirement Name & Status Badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{fc.icon}</span>
+                            <div>
+                              <span className="font-bold text-slate-900 text-xs block">{fc.label}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{fc.ruleCode}</span>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border shrink-0 ${badgeColor}`}>
+                            {badgeLabel}
+                          </span>
+                        </div>
+
+                        {/* Middle: Detected Value */}
+                        <div className="bg-white rounded-lg p-2.5 border border-slate-200/60">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Detected Declaration</span>
+                          <p className="font-mono text-xs font-semibold text-slate-900 break-words">
+                            {displayVal}
+                          </p>
+                        </div>
+
+                        {/* Bottom Row: Metadata chips */}
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-0.5">
+                          <div className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-150">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase block">Confidence</span>
+                            <span className="font-mono font-black text-slate-800">{confidenceStr}</span>
+                          </div>
+                          <div className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-150">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase block">Source Panel</span>
+                            <span className="font-mono font-bold text-slate-700 truncate block">{sourceSide}</span>
+                          </div>
+                        </div>
+
+                        {/* Readability & Placement status */}
+                        <div className="text-[10px] flex items-center justify-between pt-0.5 border-t border-slate-200/40 text-slate-500">
+                          <span>Readability:</span>
+                          <span className={`font-bold ${hasVal && !meta.conflict ? 'text-emerald-700' : 'text-amber-700'}`}>
+                            {hasVal && !meta.conflict ? 'Visible • High Contrast' : 'Needs Officer Confirmation'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

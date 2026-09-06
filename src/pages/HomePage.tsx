@@ -484,8 +484,8 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* ── Desktop & Tablet Table ────────────────────────────────── */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/70">
@@ -567,6 +567,88 @@ export default function HomePage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* ── Mobile Responsive Stacked Cards (<768px, single-hand use) ── */}
+          <div className="block md:hidden space-y-3">
+            {recentScans.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs bg-slate-50 rounded-2xl p-4">
+                No inspections found. Click "New Inspection" to start your first scan!
+              </div>
+            ) : (
+              recentScans.map((s) => {
+                const prodName = s.extracted_fields?.product_name || s.extracted_fields?.brand_name || 'Packaged Commodity Sample';
+                const score = s.compliance_score?.score ?? s.extracted_fields?.compliance_score?.score ?? 85;
+                const isPass = s.status === 'compliant';
+                const isRev = s.status === 'needs_review';
+                const is360 = !!s.extracted_fields?.sides_ocr;
+
+                return (
+                  <div
+                    key={s.id}
+                    className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3 transition-all"
+                  >
+                    {/* Top Row: ID & Status Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-xs text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                          #{s.id}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          is360 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {is360 ? '🎥 360°' : '📷 Multi-Side'}
+                        </span>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                        isPass ? 'bg-emerald-100 text-emerald-800' :
+                        isRev ? 'bg-amber-100 text-amber-800' :
+                        'bg-rose-100 text-rose-800'
+                      }`}>
+                        {isPass ? '✅ Compliant' : isRev ? '⚠️ Review' : '❌ Violation'}
+                      </span>
+                    </div>
+
+                    {/* Middle: Product & Metadata */}
+                    <div>
+                      <h4 className="font-black text-slate-900 text-sm leading-snug">{prodName}</h4>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        MRP: {s.extracted_fields?.mrp || '₹--'} • Qty: {s.extracted_fields?.net_quantity || '--'}
+                      </p>
+                    </div>
+
+                    {/* Score Bar */}
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 text-xs">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Compliance Score</span>
+                      <div className="flex items-baseline gap-1 font-black">
+                        <span className={score >= 85 ? 'text-emerald-700' : score >= 55 ? 'text-amber-700' : 'text-rose-700'}>
+                          {score}
+                        </span>
+                        <span className="text-[10px] text-slate-400">/ 100</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Date & Full-Width Thumb CTA */}
+                    <div className="pt-1 flex flex-col gap-2 border-t border-slate-200/60">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Audited on: {new Date(s.created_at || Date.now()).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <Link
+                        to={`/scan/${s.id}`}
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                      >
+                        <Eye size={14} />
+                        <span>View Inspection Dossier</span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

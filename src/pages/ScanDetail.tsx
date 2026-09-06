@@ -1403,7 +1403,8 @@ export default function ScanDetail() {
                 <span className="text-xs font-bold text-slate-800">{catTitle}</span>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* ── Desktop & Tablet Table ────────────────────────────────── */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50">
@@ -1476,6 +1477,81 @@ export default function ScanDetail() {
                   </tbody>
                 </table>
               </div>
+
+              {/* ── Mobile Responsive Stacked Cards (<768px) ────────────────── */}
+              <div className="block md:hidden p-3 space-y-2.5">
+                {catFields.map((f) => {
+                  const value = resolvedFields[f.key] || scan.extracted_fields?.semantic_fields?.[f.key];
+                  const fusionMeta = scan.extracted_fields?.fusion_fields?.[f.key] || {};
+                  const sourceSide = fusionMeta.source_side || 'Front';
+                  const confScore = Math.round((fusionMeta.confidence || (value ? 0.85 : 0)) * 100);
+                  const isHighlighted = highlightedFieldKey === f.key;
+                  const hasConflict = Boolean(fusionMeta.conflict || fusionMeta.agreement === 'CONFLICT');
+
+                  const matchCheck = inspectionChecklist.find((c: any) => c.fieldKey === f.key || c.id === f.key);
+                  const badge = getDetectionBadge(matchCheck?.detectionState || (value ? 'VERIFIED' : (availableSides.length === 1 ? 'NOT_VISIBLE' : 'NOT_DETECTED')));
+
+                  return (
+                    <div
+                      key={f.key}
+                      onClick={() => {
+                        setHighlightedFieldKey(f.key);
+                        if (fusionMeta.source_side && ['front', 'back', 'left', 'right'].includes(fusionMeta.source_side.toLowerCase())) {
+                          setActiveSide(fusionMeta.source_side.toLowerCase());
+                        }
+                      }}
+                      className={`p-3.5 rounded-xl border text-xs space-y-2 cursor-pointer transition-all ${
+                        isHighlighted
+                          ? 'bg-blue-50/90 border-blue-300 ring-2 ring-blue-500/20 shadow-xs'
+                          : hasConflict
+                          ? 'bg-amber-50/60 border-amber-200'
+                          : 'bg-white border-slate-200 shadow-2xs'
+                      }`}
+                    >
+                      {/* Top: Field & Badge */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>{f.icon}</span>
+                            <span>{f.label}</span>
+                            {f.isCritical && <span className="text-rose-500 font-black">*</span>}
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                            {f.ruleCode}
+                          </span>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${badge.color}`}>
+                          {matchCheck?.status === 'PASS' || value ? <CheckCircle2 size={10} /> : <AlertTriangle size={10} />}
+                          <span>{badge.label}</span>
+                        </span>
+                      </div>
+
+                      {/* Middle: Value */}
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Verified Value:</span>
+                        <p className="font-mono font-bold text-slate-900 text-xs mt-0.5 break-words">
+                          {value || <span className="text-slate-400 italic font-normal">Not detected</span>}
+                        </p>
+                        {hasConflict && (
+                          <span className="block text-[10px] text-amber-700 font-bold mt-1">
+                            ⚠️ Disagreement (OCR: {fusionMeta.ocr_value || 'None'} vs AI: {fusionMeta.gemini_value || 'None'})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Bottom Meta */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700 uppercase">
+                          Panel: {sourceSide}
+                        </span>
+                        <span className="font-mono font-bold text-slate-700">
+                          {confScore}% Conf. ({fusionMeta.source || 'OCR'})
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
@@ -1499,7 +1575,8 @@ export default function ScanDetail() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* ── Desktop & Tablet Table ────────────────────────────────── */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50">
@@ -1536,6 +1613,39 @@ export default function ScanDetail() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* ── Mobile Responsive Stacked Cards (<768px) ────────────────── */}
+          <div className="block md:hidden space-y-2.5">
+            {Object.entries(scan.officer_overrides).map(([fieldKey, overrideData]: [string, any]) => (
+              <div
+                key={fieldKey}
+                className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200 text-xs space-y-2 shadow-2xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-black text-slate-900 uppercase">
+                    {fieldKey.replace(/_/g, ' ')}
+                  </span>
+                  <span className="font-mono text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">
+                    {overrideData.officer_id || '#LM-204'}
+                  </span>
+                </div>
+
+                <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-100">
+                  <div className="text-slate-400 line-through font-mono text-[11px]">
+                    Original: {overrideData.original_value || '<Empty>'}
+                  </div>
+                  <div className="text-emerald-900 font-bold font-mono text-xs">
+                    Verified: {overrideData.officer_value}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+                  <span>{overrideData.reason || 'Manual officer statutory verification'}</span>
+                  <span>{overrideData.timestamp ? new Date(overrideData.timestamp).toLocaleDateString('en-IN') : 'Recent'}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
