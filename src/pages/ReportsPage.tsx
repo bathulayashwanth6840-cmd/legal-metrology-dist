@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getStoredComplaints } from '../services/complaintService';
 import type { ComplaintRecord } from '../types/complaint';
+import { evaluateCanonicalCompliance } from '../utils/complianceEngine';
 
 export default function ReportsPage() {
   const [scans, setScans] = useState<any[]>([]);
@@ -248,9 +249,7 @@ export default function ReportsPage() {
               ) : (
                 filteredScans.map((s) => {
                   const prodName = s.extracted_fields?.product_name || s.extracted_fields?.brand_name || 'Packaged Commodity Sample';
-                  const score = s.compliance_score?.score ?? s.extracted_fields?.compliance_score?.score ?? 85;
-                  const isPass = s.status === 'compliant';
-                  const isRev = s.status === 'needs_review';
+                  const canonical = evaluateCanonicalCompliance({ serverScan: s });
 
                   return (
                     <div
@@ -262,12 +261,8 @@ export default function ReportsPage() {
                           <span className="font-mono text-xs font-black text-slate-500">
                             DOC #{s.id}
                           </span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            isPass ? 'bg-emerald-100 text-emerald-800' :
-                            isRev ? 'bg-amber-100 text-amber-800' :
-                            'bg-rose-100 text-rose-800'
-                          }`}>
-                            {isPass ? '✅ Pass' : isRev ? '⚠️ Review' : '❌ Violation'}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${canonical.textBadgeClass}`}>
+                            {canonical.status === 'COMPLIANT' ? '✅ Pass' : canonical.status === 'NON-COMPLIANT' ? '❌ Violation' : '⚠️ Review'}
                           </span>
                         </div>
 
@@ -285,28 +280,30 @@ export default function ReportsPage() {
                         <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase text-slate-500">Statutory Score</span>
                           <div className="flex items-baseline gap-1 font-black">
-                            <span className={score >= 85 ? 'text-emerald-700' : score >= 55 ? 'text-amber-700' : 'text-rose-700'}>
-                              {score}
+                            <span className={canonical.score >= 85 ? 'text-emerald-700' : canonical.score >= 55 ? 'text-amber-700' : 'text-rose-700'}>
+                              {canonical.score}
                             </span>
-                            <span className="text-[10px] text-slate-400">/ 100</span>
+                            <span className="text-[10px] text-slate-400 font-normal">/ 100</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => downloadReportForScan(s.id)}
-                          className="py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
-                        >
-                          <Download size={13} /> PDF Report
-                        </button>
+                      <div className="pt-2 border-t border-slate-100 flex gap-2">
                         <Link
                           to={`/scan/${s.id}`}
-                          className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center"
+                          className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                         >
-                          <Eye size={13} /> View Audit
+                          <Eye size={13} /> View Dossier
                         </Link>
+                        <a
+                          href={`${apiUrl}/api/scans/${s.id}/report`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-2xs"
+                          title="Download PDF"
+                        >
+                          <Download size={13} /> PDF
+                        </a>
                       </div>
                     </div>
                   );

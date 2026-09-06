@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { getStoredComplaints } from '../services/complaintService';
 import type { ComplaintRecord } from '../types/complaint';
+import { evaluateCanonicalCompliance } from '../utils/complianceEngine';
 
 export default function HomePage() {
   const { profile, isCitizen, isOfficer, isAdmin } = useRole();
@@ -41,10 +42,9 @@ export default function HomePage() {
   // Compute live real metrics from scans
   const stats = useMemo(() => {
     const total = scans.length;
-    const compliant = scans.filter((s) => s.status === 'compliant').length;
-    const needsReview = scans.filter((s) => s.status === 'needs_review').length;
-    const nonCompliant = scans.filter((s) => s.status === 'non_compliant').length;
-
+    let compliant = 0;
+    let needsReview = 0;
+    let nonCompliant = 0;
     let scoreSum = 0;
     let scoredCount = 0;
     let totalViolations = 0;
@@ -59,16 +59,22 @@ export default function HomePage() {
     };
 
     scans.forEach((s) => {
-      const sc = s.compliance_score?.score ?? s.extracted_fields?.compliance_score?.score;
-      if (typeof sc === 'number') {
-        scoreSum += sc;
-        scoredCount++;
+      const canonical = evaluateCanonicalCompliance({ serverScan: s });
+      if (canonical.status === 'COMPLIANT') {
+        compliant++;
+      } else if (canonical.status === 'NON-COMPLIANT') {
+        nonCompliant++;
+      } else {
+        needsReview++;
       }
+
+      scoreSum += canonical.score;
+      scoredCount++;
+      totalViolations += canonical.failedChecks;
 
       const rules = s.extracted_fields?.rules_evaluated || [];
       rules.forEach((r: any) => {
         if (r.status === 'FAIL') {
-          totalViolations++;
           if (r.rule_code?.includes('6(1)(e)') || r.rule_name?.toLowerCase().includes('mrp')) {
             violationTypes['MRP Declaration']++;
           } else if (r.rule_code?.includes('12') || r.rule_name?.toLowerCase().includes('quantity')) {
@@ -583,9 +589,7 @@ export default function HomePage() {
                 ) : (
                   recentScans.map((s) => {
                     const prodName = s.extracted_fields?.product_name || s.extracted_fields?.brand_name || 'Packaged Commodity Sample';
-                    const score = s.compliance_score?.score ?? s.extracted_fields?.compliance_score?.score ?? 85;
-                    const isPass = s.status === 'compliant';
-                    const isRev = s.status === 'needs_review';
+                    const canonical = evaluateCanonicalCompliance({ serverScan: s });
                     const is360 = !!s.extracted_fields?.sides_ocr;
 
                     return (
@@ -613,19 +617,15 @@ export default function HomePage() {
                         </td>
                         <td className="p-3.5">
                           <div className="flex items-center gap-1.5 font-black">
-                            <span className={score >= 85 ? 'text-emerald-600' : score >= 55 ? 'text-amber-600' : 'text-rose-600'}>
-                              {score}
+                            <span className={canonical.score >= 85 ? 'text-emerald-600' : canonical.score >= 55 ? 'text-amber-600' : 'text-rose-600'}>
+                              {canonical.score}
                             </span>
                             <span className="text-[10px] text-slate-400">/ 100</span>
                           </div>
                         </td>
                         <td className="p-3.5">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            isPass ? 'bg-emerald-100 text-emerald-800' :
-                            isRev ? 'bg-amber-100 text-amber-800' :
-                            'bg-rose-100 text-rose-800'
-                          }`}>
-                            {isPass ? '✅ Compliant' : isRev ? '⚠️ Needs Review' : '❌ Non-Compliant'}
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${canonical.textBadgeClass}`}>
+                            {canonical.status === 'COMPLIANT' ? '✅ Compliant' : canonical.status === 'NON-COMPLIANT' ? '❌ Non-Compliant' : '⚠️ Needs Review'}
                           </span>
                         </td>
                         <td className="p-3.5 text-right">
@@ -653,9 +653,7 @@ export default function HomePage() {
             ) : (
               recentScans.map((s) => {
                 const prodName = s.extracted_fields?.product_name || s.extracted_fields?.brand_name || 'Packaged Commodity Sample';
-                const score = s.compliance_score?.score ?? s.extracted_fields?.compliance_score?.score ?? 85;
-                const isPass = s.status === 'compliant';
-                const isRev = s.status === 'needs_review';
+                const canonical = evaluateCanonicalCompliance({ serverScan: s });
                 const is360 = !!s.extracted_fields?.sides_ocr;
 
                 return (
@@ -675,12 +673,8 @@ export default function HomePage() {
                           {is360 ? '🎥 360°' : '📷 Multi-Side'}
                         </span>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        isPass ? 'bg-emerald-100 text-emerald-800' :
-                        isRev ? 'bg-amber-100 text-amber-800' :
-                        'bg-rose-100 text-rose-800'
-                      }`}>
-                        {isPass ? '✅ Compliant' : isRev ? '⚠️ Review' : '❌ Violation'}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${canonical.textBadgeClass}`}>
+                        {canonical.status === 'COMPLIANT' ? '✅ Compliant' : canonical.status === 'NON-COMPLIANT' ? '❌ Non-Compliant' : '⚠️ Review'}
                       </span>
                     </div>
 
@@ -696,8 +690,8 @@ export default function HomePage() {
                     <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 text-xs">
                       <span className="text-[10px] uppercase font-bold text-slate-400">Compliance Score</span>
                       <div className="flex items-baseline gap-1 font-black">
-                        <span className={score >= 85 ? 'text-emerald-700' : score >= 55 ? 'text-amber-700' : 'text-rose-700'}>
-                          {score}
+                        <span className={canonical.score >= 85 ? 'text-emerald-700' : canonical.score >= 55 ? 'text-amber-700' : 'text-rose-700'}>
+                          {canonical.score}
                         </span>
                         <span className="text-[10px] text-slate-400">/ 100</span>
                       </div>

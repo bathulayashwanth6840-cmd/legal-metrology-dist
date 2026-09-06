@@ -8,6 +8,7 @@ import {
 import { useLanguage } from '../i18n/LanguageContext';
 import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
 import { useFocusTrap } from '../utils/useFocusTrap';
+import { evaluateCanonicalCompliance } from '../utils/complianceEngine';
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -429,7 +430,10 @@ export default function HistoryPage() {
               scan.extracted_fields?.fusion_fields?.product_name?.selected_value ||
               scan.extracted_fields?.brand_name ||
               'Packaged Commodity';
-            const score = scan.compliance_score?.score ?? scan.extracted_fields?.compliance_score?.score;
+            const canonical = evaluateCanonicalCompliance({
+              serverScan: scan,
+              ocrConfidence: scan.ocr_confidence ?? scan.extracted_fields?.ocr_confidence
+            });
             const scanDate = scan.created_at
               ? new Date(scan.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
               : null;
@@ -494,12 +498,8 @@ export default function HistoryPage() {
                             </span>
                           )}
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          scan.status === 'compliant' ? 'bg-emerald-100 text-emerald-800' :
-                          scan.status === 'needs_review' ? 'bg-amber-100 text-amber-800' :
-                          'bg-rose-100 text-rose-800'
-                        }`}>
-                          {scan.status.replace('_', ' ').toUpperCase()}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${canonical.textBadgeClass}`}>
+                          {canonical.status}
                         </span>
                       </div>
 
@@ -510,15 +510,17 @@ export default function HistoryPage() {
 
                     <div className="mt-2 text-xs flex justify-between items-center border-t border-gray-100 pt-2">
                       <div className="flex items-center gap-2">
-                        {score !== undefined && (
-                          <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">
-                            {score}/100
-                          </span>
-                        )}
+                        <span className="text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">
+                          {canonical.score}/100
+                        </span>
                         <span className="text-[11px] text-gray-500 flex items-center gap-1">
-                          {scan.violations && scan.violations.length > 0 ? (
+                          {canonical.failedChecks > 0 ? (
                             <span className="text-rose-600 font-semibold flex items-center gap-0.5">
-                              <AlertTriangle size={12} aria-hidden="true" /> {scan.violations.length} {t('history.violations')}
+                              <AlertTriangle size={12} aria-hidden="true" /> {canonical.failedChecks} {t('history.violations')}
+                            </span>
+                          ) : canonical.reviewChecks > 0 ? (
+                            <span className="text-amber-600 font-semibold flex items-center gap-0.5">
+                              <AlertCircle size={12} aria-hidden="true" /> {canonical.reviewChecks} Needs Review
                             </span>
                           ) : (
                             <span className="text-emerald-600 font-semibold flex items-center gap-0.5">

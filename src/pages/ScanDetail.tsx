@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { createComplaintRecord } from '../services/complaintService';
 import { resolveImageUrl, handleImageError } from '../utils/imageUtils';
+import { evaluateCanonicalCompliance } from '../utils/complianceEngine';
 
 const METROLOGY_FIELDS = [
   // Legal Metrology Act & Rules 2011 (LMR)
@@ -168,81 +169,6 @@ function resolveExtractedFields(data: any): Record<string, string> {
   };
 }
 
-// Dynamic Legal Metrology statutory compliance score calculator
-function computeDynamicComplianceScore(
-  fieldsMap: Record<string, string>,
-  violations: any[] = [],
-  serverScoreObj?: any
-): {
-  score: number;
-  max_score: number;
-  category: string;
-  color: string;
-  declarations_found: number;
-  declarations_total: number;
-  violations_count: number;
-} {
-  const weights: Record<string, number> = {
-    mrp: 15,
-    net_quantity: 15,
-    manufacturer_name: 15,
-    manufacturer_address: 15,
-    mfg_date: 15,
-    product_name: 10,
-    consumer_care: 10,
-    country_of_origin: 5,
-  };
-
-  let totalScore = 0;
-  let foundCount = 0;
-  const totalKeys = Object.keys(weights).length;
-
-  for (const [key, weight] of Object.entries(weights)) {
-    const val = fieldsMap[key]?.trim();
-    if (val && val.length > 0) {
-      totalScore += weight;
-      foundCount++;
-    }
-  }
-
-  // Deduct for confirmed violations if any
-  const highSeverityViolations = (violations || []).filter(
-    (v: any) => v.status === 'FAIL' || v.severity === 'HIGH'
-  ).length;
-  const medSeverityViolations = (violations || []).filter(
-    (v: any) => v.status === 'REVIEW' || v.severity === 'MEDIUM'
-  ).length;
-
-  totalScore -= (highSeverityViolations * 15) + (medSeverityViolations * 5);
-
-  let finalScore = Math.max(15, Math.min(100, Math.round(totalScore)));
-
-  // If server already provided a validated score and we have zero custom fields, respect it
-  if (serverScoreObj?.score && foundCount === 0) {
-    finalScore = serverScoreObj.score;
-  }
-
-  let category = 'Non-Compliant';
-  let color = 'red';
-
-  if (finalScore >= 85 && highSeverityViolations === 0) {
-    category = 'Compliant';
-    color = 'green';
-  } else if (finalScore >= 55 || (foundCount >= 4 && highSeverityViolations === 0)) {
-    category = 'Needs Review';
-    color = 'amber';
-  }
-
-  return {
-    score: finalScore,
-    max_score: 100,
-    category,
-    color,
-    declarations_found: foundCount,
-    declarations_total: totalKeys,
-    violations_count: (violations || []).length,
-  };
-}
 
 export default function ScanDetail() {
   const { id } = useParams();
@@ -358,16 +284,7 @@ export default function ScanDetail() {
   if (loading) return <div className="p-8 text-center text-slate-500 text-xs">Loading inspection details...</div>;
   if (!scan) return <div className="p-8 text-center text-rose-500 text-xs">Scan not found</div>;
 
-  const statusStr = (scan.status || 'needs_review').toLowerCase();
-  const isCompliant = statusStr === 'compliant';
-  const isNeedsReview = statusStr === 'needs_review';
-
   const resolvedFields = resolveExtractedFields(scan);
-  const scoreObj = computeDynamicComplianceScore(
-    resolvedFields,
-    scan.violations,
-    scan.compliance_score || scan.extracted_fields?.compliance_score
-  );
 
   const ocrConf = scan.ocr_confidence ?? scan.extracted_fields?.ocr_confidence ?? 94.5;
   const extConf = scan.extraction_confidence ?? scan.extracted_fields?.extraction_confidence ?? 88.0;
@@ -427,20 +344,20 @@ export default function ScanDetail() {
     {
       id: 'declarations',
       label: 'Mandatory declarations extracted',
-      status: scoreObj.declarations_found >= 7 ? ('PASS' as const) : ('REVIEW' as const),
-      detectionState: scoreObj.declarations_found >= 7 ? 'VERIFIED' : (viewsCount === 1 ? 'NOT_VISIBLE' : 'NOT_DETECTED'),
-      detected: `${scoreObj.declarations_found} of 10 mandatory declarations extracted`,
+      status: Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length >= 6 ? ('PASS' as const) : ('REVIEW' as const),
+      detectionState: Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length >= 6 ? 'VERIFIED' : (viewsCount === 1 ? 'NOT_VISIBLE' : 'NOT_DETECTED'),
+      detected: `${Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length} of 10 mandatory declarations extracted`,
       required: 'All 10 statutory declarations under Rule 6, LMR 2011',
       ruleCode: 'Rule 6, LMR 2011',
-      rawOcrText: `${scoreObj.declarations_found} fields parsed across captured OCR text lines`,
+      rawOcrText: `${Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length} fields parsed across captured OCR text lines`,
       source: 'Extraction Pipeline',
       evidenceRegion: 'All Captured Surfaces',
-      reason: scoreObj.declarations_found >= 7
+      reason: Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length >= 6
         ? 'High statutory declaration coverage across package surfaces.'
         : viewsCount === 1
         ? 'Single panel recorded; unextracted declarations are likely printed on uncaptured flaps.'
         : 'Some declarations were not detected on captured surfaces. Officer visual inspection recommended.',
-      action: scoreObj.declarations_found >= 7
+      action: Object.values(resolvedFields).filter((v) => v && String(v).trim().length > 0).length >= 6
         ? 'Verify physical product matching.'
         : 'Inspect physical package to verify uncaptured back/side flaps.'
     },
@@ -952,10 +869,14 @@ export default function ScanDetail() {
     })()
   ];
 
-  const failedChecks = inspectionChecklist.filter((c) => c.status === 'FAIL' || c.status === 'REVIEW');
-  const confirmedFails = inspectionChecklist.filter((c) => c.status === 'FAIL' || c.detectionState === 'CONFIRMED_MISSING');
-  const reviewItems = inspectionChecklist.filter((c) => c.status === 'REVIEW' && c.detectionState !== 'CONFIRMED_MISSING');
-  const passedChecks = inspectionChecklist.filter((c) => c.status === 'PASS');
+  const canonical = evaluateCanonicalCompliance({
+    checklist: inspectionChecklist,
+    serverScan: scan,
+    fields: resolvedFields,
+    ocrConfidence: ocrConf,
+  });
+
+  const actionItems = inspectionChecklist.filter((c) => c.status === 'FAIL' || c.status === 'REVIEW');
 
   return (
     <div className="p-4 sm:p-6 pb-20 max-w-6xl mx-auto select-none space-y-6">
@@ -1019,13 +940,7 @@ export default function ScanDetail() {
       </div>
 
       {/* ── 1. PROMINENT INSPECTION RESULT HERO BANNER ────────────────────────── */}
-      <div className={`rounded-3xl p-6 sm:p-8 border text-white shadow-xl ${
-        isCompliant
-          ? 'bg-gradient-to-br from-emerald-800 via-teal-900 to-slate-950 border-emerald-600/50'
-          : isNeedsReview
-          ? 'bg-gradient-to-br from-amber-700 via-yellow-900 to-slate-950 border-amber-500/50'
-          : 'bg-gradient-to-br from-rose-900 via-red-950 to-slate-950 border-rose-600/50'
-      }`}>
+      <div className={`rounded-3xl p-6 sm:p-8 border text-white shadow-xl ${canonical.heroGradientClass}`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -1038,23 +953,13 @@ export default function ScanDetail() {
               <h1 className="text-xl sm:text-2xl font-black text-white/90 uppercase tracking-tight">
                 INSPECTION RESULT:
               </h1>
-          <span className={`text-2xl sm:text-4xl font-black px-4 py-1.5 rounded-2xl tracking-tight shadow-md inline-block ${
-                isCompliant
-                  ? 'bg-emerald-500 text-white'
-                  : isNeedsReview
-                  ? 'bg-amber-500 text-slate-950'
-                  : 'bg-rose-600 text-white'
-              }`}>
-                {isCompliant ? '[COMPLIANT]' : isNeedsReview ? '[NEEDS REVIEW]' : '[NON-COMPLIANT]'}
+              <span className={`text-2xl sm:text-4xl font-black px-4 py-1.5 rounded-2xl tracking-tight shadow-md inline-block ${canonical.badgeBgClass}`}>
+                {canonical.badgeLabel}
               </span>
             </div>
 
             <p className="text-xs sm:text-sm text-white/90 max-w-2xl leading-relaxed">
-              {isCompliant
-                ? 'All mandatory statutory declarations meet the Legal Metrology (Packaged Commodities) Rules, 2011.'
-                : isNeedsReview
-                ? `Packaged commodity contains valid declarations. ${reviewItems.length} declaration(s) require officer verification or multi-panel capture without assuming violation.`
-                : `${confirmedFails.length} mandatory Legal Metrology requirement(s) conclusively failed statutory verification.`}
+              {canonical.summaryText}
             </p>
           </div>
 
@@ -1067,11 +972,11 @@ export default function ScanDetail() {
               Compliance Score
             </span>
             <div className="flex items-baseline justify-center gap-1 my-1">
-              <span className="text-3xl sm:text-4xl font-black text-white">{scoreObj.score}</span>
+              <span className="text-3xl sm:text-4xl font-black text-white">{canonical.score}</span>
               <span className="text-xs text-white/70 font-bold">/ 100</span>
             </div>
             <span className="text-[10px] text-white/80 font-mono block">
-              {passedChecks.length} of {inspectionChecklist.length} Checks Passed
+              {canonical.passedChecks} of {canonical.totalChecks} Checks Passed
             </span>
           </div>
         </div>
@@ -1237,7 +1142,7 @@ export default function ScanDetail() {
                   Statutory Inspection Checklist
                 </h3>
                 <span className="text-[10px] font-black bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  {passedChecks.length} Passed • {reviewItems.length} Review • {confirmedFails.length} Failed
+                  {canonical.passedChecks} Passed • {canonical.reviewChecks} Review • {canonical.failedChecks} Failed
                 </span>
               </div>
 
@@ -1289,13 +1194,13 @@ export default function ScanDetail() {
       </div>
 
       {/* ── 4. ACTIONABLE FAILURE & REVIEW FINDINGS ────────────────────────────── */}
-      {failedChecks.length > 0 && (
+      {actionItems.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
           <div className="flex items-center gap-2.5 border-b border-slate-200 pb-3">
             <AlertCircle size={20} className="text-blue-600 flex-shrink-0" />
             <div>
               <h3 className="font-black text-slate-950 text-base">
-                Statutory Verification & Evidence Breakdown ({failedChecks.length})
+                Statutory Verification & Evidence Breakdown ({actionItems.length})
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
                 Comprehensive evidence proof distinguishing confirmed omissions, uncaptured package panels, and image quality warnings.
@@ -1304,7 +1209,7 @@ export default function ScanDetail() {
           </div>
 
           <div className="space-y-3">
-            {failedChecks.map((fc) => {
+            {actionItems.map((fc) => {
               const badge = getDetectionBadge(fc.detectionState);
               const isFail = fc.status === 'FAIL';
 
@@ -1688,7 +1593,7 @@ export default function ScanDetail() {
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[10px] font-bold text-slate-500 uppercase block">Statutory Rule Engine</span>
                 <span className="text-sm font-black text-slate-900 mt-1 block">LMR 2011 Weighted Evaluator</span>
-                <span className="text-xs font-mono font-bold text-amber-700">{scoreObj.score} / 100 Score</span>
+                <span className="text-xs font-mono font-bold text-amber-700">{canonical.score} / 100 Score</span>
               </div>
             </div>
           </div>
@@ -1865,7 +1770,7 @@ export default function ScanDetail() {
           ) : (
             <button
               type="button"
-              onClick={() => handleCreateComplaint(displayProductName, failedChecks, resolvedFields)}
+              onClick={() => handleCreateComplaint(displayProductName, actionItems, resolvedFields)}
               className="px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer flex-shrink-0"
             >
               <FileWarning size={16} />
