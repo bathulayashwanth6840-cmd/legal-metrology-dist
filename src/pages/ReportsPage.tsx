@@ -105,6 +105,42 @@ export default function ReportsPage() {
       {/* ── Main Body ────────────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-8 -mt-4 space-y-6 w-full">
 
+        {/* SIH Hackathon Official Presentation & Defense Deck Card */}
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 text-white border border-blue-700/50 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-400/40 px-3 py-1 rounded-full text-[10px] font-black uppercase text-amber-300 tracking-wider">
+              <Sparkles size={12} /> SMART INDIA HACKATHON 2026 OFFICIAL DECK
+            </div>
+            <h2 className="text-xl font-black text-white">SIH 2026 Presentation Slides & Judges Defense Manual</h2>
+            <p className="text-xs text-blue-200 leading-relaxed">
+              Complete evaluation slide deck containing solution architecture, regulatory compliance engine, research work, impact analysis, and technical defense manual.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href="/SMART_INDIA_HACKATHON_2026.pdf"
+              download="SMART_INDIA_HACKATHON_2026.pdf"
+              target="_blank"
+              rel="noreferrer"
+              className="px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-2xl shadow-lg flex items-center gap-2 transition-all"
+            >
+              <Download size={16} />
+              <span>Download Slides (PDF)</span>
+            </a>
+
+            <a
+              href="/presentation.html"
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 transition-all flex items-center gap-1.5"
+            >
+              <Eye size={14} />
+              <span>Interactive Slides</span>
+            </a>
+          </div>
+        </div>
+
         {/* Search & Tabs Toolbar */}
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col md:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
