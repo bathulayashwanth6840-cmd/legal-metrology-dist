@@ -5,7 +5,12 @@ import { useRole } from '../context/RoleContext';
 import { Shield, UserCheck, Users, ChevronDown, Check, LogOut, Sparkles } from 'lucide-react';
 import type { UserRole } from '../types/complaint';
 
-export default function RoleSwitcher() {
+interface RoleSwitcherProps {
+  align?: 'left' | 'right';
+  className?: string;
+}
+
+export default function RoleSwitcher({ align = 'left', className = '' }: RoleSwitcherProps) {
   const { currentRole, setRole, profile, logout } = useRole();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -88,9 +93,10 @@ export default function RoleSwitcher() {
   };
 
   const roleLabel = profile.displayName;
+  const alignmentClasses = align === 'right' ? 'right-0 left-auto' : 'left-0 right-auto';
 
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
+    <div className={`relative inline-block text-left ${className}`} ref={dropdownRef}>
       <button
         ref={triggerRef}
         type="button"
@@ -120,7 +126,7 @@ export default function RoleSwitcher() {
           id="role-switcher-menu"
           role="menu"
           aria-labelledby="role-switcher-button"
-          className="absolute right-0 mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl text-white z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150"
+          className={`absolute ${alignmentClasses} mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl text-white z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150`}
         >
           {/* Header Note */}
           <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">

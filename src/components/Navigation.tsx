@@ -206,7 +206,7 @@ export default function Navigation() {
 
         {/* Live Role Persona Switcher in Header */}
         <div className="px-3.5 py-2.5 bg-blue-950/70 border-b border-blue-900/60 flex items-center justify-between">
-          <RoleSwitcher />
+          <RoleSwitcher align="left" />
           <span className="text-[9px] bg-amber-400/20 text-amber-300 font-bold px-1.5 py-0.5 rounded-md border border-amber-400/30 flex items-center gap-1">
             <Sparkles size={10} />
             <span>Demo</span>
@@ -332,7 +332,7 @@ export default function Navigation() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle compact />
-          <RoleSwitcher />
+          <RoleSwitcher align="right" />
         </div>
       </header>
 
