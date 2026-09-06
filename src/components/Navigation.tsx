@@ -8,6 +8,7 @@ import {
 import { useLanguage } from '../i18n/LanguageContext';
 import type { Language } from '../i18n/LanguageContext';
 import RoleSwitcher from './RoleSwitcher';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navigation() {
   const { language, setLanguage, t } = useLanguage();
@@ -91,6 +92,11 @@ export default function Navigation() {
           </ul>
         </nav>
 
+        {/* Theme Mode Toggle */}
+        <div className="p-3 border-t border-blue-950/60 bg-blue-950/40">
+          <ThemeToggle />
+        </div>
+
         {/* Language Selector Section */}
         <div className="p-3.5 border-t border-blue-950/60 bg-blue-950/50">
           <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold text-blue-200">
@@ -123,11 +129,14 @@ export default function Navigation() {
           <ShieldCheck size={18} className="text-amber-400" />
           <span className="font-bold text-xs">LegalMetriX</span>
         </div>
-        <RoleSwitcher />
+        <div className="flex items-center gap-2">
+          <ThemeToggle compact />
+          <RoleSwitcher />
+        </div>
       </div>
 
       {/* ── Mobile Bottom Tab Bar ────────────────────────────────────────── */}
-      <div className="sm:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 z-50 shadow-lg">
+      <div className="sm:hidden fixed bottom-0 w-full bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 z-50 shadow-lg transition-colors">
         <nav className="flex justify-around items-center">
           {navItems.slice(0, 5).map((item) => (
             <NavLink
@@ -135,7 +144,7 @@ export default function Navigation() {
               to={item.to}
               className={({ isActive }) =>
                 `flex flex-col items-center py-2 px-1 w-full text-center transition-colors ${
-                  isActive ? 'text-[var(--color-navy)] font-bold' : 'text-gray-400 font-normal'
+                  isActive ? 'text-[var(--color-navy)] dark:text-amber-400 font-bold' : 'text-gray-400 dark:text-slate-400 font-normal'
                 }`
               }
             >

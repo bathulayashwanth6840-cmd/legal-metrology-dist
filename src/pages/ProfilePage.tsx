@@ -1,5 +1,6 @@
 import { useLanguage } from '../i18n/LanguageContext';
 import { ShieldCheck, User as UserIcon, Award, Building, Sparkles } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function ProfilePage() {
   const { t } = useLanguage();
@@ -74,15 +75,21 @@ export default function ProfilePage() {
               <Building size={18} className="text-gray-400" />
             </div>
 
-            <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100">
-              <span className="block text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-2">Authority Standard</span>
+            <div className="bg-blue-50/60 dark:bg-blue-950/40 p-4 rounded-xl border border-blue-100 dark:border-blue-900/60">
+              <span className="block text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">Authority Standard</span>
               <div className="flex items-center gap-3">
                 <img src="/legal_metrology_logo.jpg" alt="Emblem" className="w-10 h-10 rounded-full border border-blue-200 bg-white shadow-2xs" />
                 <div>
-                  <span className="text-sm font-bold text-gray-800 block">Legal Metrology (Packaged Commodities) Rules, 2011</span>
-                  <span className="text-xs text-gray-500">Ministry of Consumer Affairs, Food and Public Distribution</span>
+                  <span className="text-sm font-bold text-gray-800 dark:text-slate-100 block">Legal Metrology (Packaged Commodities) Rules, 2011</span>
+                  <span className="text-xs text-gray-500 dark:text-slate-400">Ministry of Consumer Affairs, Food and Public Distribution</span>
                 </div>
               </div>
+            </div>
+
+            {/* Display & Theme Preferences */}
+            <div className="bg-gray-50 dark:bg-slate-900/60 p-4 rounded-xl border border-gray-100 dark:border-slate-800">
+              <span className="block text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">Display & Theme Preference</span>
+              <ThemeToggle />
             </div>
           </div>
         </div>

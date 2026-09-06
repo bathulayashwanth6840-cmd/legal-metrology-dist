@@ -11,15 +11,135 @@
   box-sizing: border-box;
 }
 
+:root {
+  color-scheme: light dark;
+}
+
 body {
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
-  background: #f0f4f8;
+  background: #f1f5f9;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ── Global Dark Mode Overrides ────────────────────────────────────────────── */
+html.dark body,
+body.dark {
+  background: #090e1a !important;
+  color: #f8fafc !important;
+}
+
+/* Backgrounds in dark mode */
+html.dark .bg-slate-50,
+html.dark .bg-slate-100 {
+  background-color: #0d1527 !important;
+}
+
+html.dark .bg-white {
+  background-color: #111c33 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .bg-gray-50 {
+  background-color: #0d1527 !important;
+}
+
+html.dark .bg-gray-100 {
+  background-color: #16223b !important;
+}
+
+/* Borders in dark mode */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-gray-200,
+html.dark .border-gray-100 {
+  border-color: #1e2e4a !important;
+}
+
+/* Text colors in dark mode */
+html.dark .text-slate-900,
+html.dark .text-gray-900 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800,
+html.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-500,
+html.dark .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* Inputs, Textareas, Selects in dark mode */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #0a1122 !important;
+  border-color: #1e2e4a !important;
+  color: #f8fafc !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Badges and tags in dark mode */
+html.dark .bg-blue-50 {
+  background-color: rgba(30, 58, 138, 0.3) !important;
+  color: #93c5fd !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.3) !important;
+  color: #6ee7b7 !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.3) !important;
+  color: #fcd34d !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(136, 19, 55, 0.3) !important;
+  color: #fda4af !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(88, 28, 135, 0.3) !important;
+  color: #d8b4fe !important;
+}
+
+/* Shadows in dark mode */
+html.dark .shadow-2xs,
+html.dark .shadow-xs,
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
+html.dark .shadow-xl {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
